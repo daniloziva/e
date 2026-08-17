@@ -143,7 +143,7 @@ E    SMOQUA · avgust 2026
 |---|---|
 | `ingestDocument` pipeline | typed dimension axes + alias/fuzzy resolution |
 | the extraction ladder + validation | required-axis enforcement, `open_text` axes |
-| `core/money.ts`, `core/nlu/*` | multi-currency, multi-axis rollup |
+| `engine/money.ts`, `engine/nlu/*` | multi-currency, multi-axis rollup |
 | rules + ambiguous-vendor detection | vendor → dimension pre-selection |
 | blob layout, sidecars, tx event blobs | `[Dodaj račun]` attach-to-previous state |
 | `/status`, `/misc` | per-currency `/status` rendering |

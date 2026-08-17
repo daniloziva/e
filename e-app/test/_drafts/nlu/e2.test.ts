@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest'
 
-import { extractSlots } from '../../../src/core/nlu/slots.js'
-import type { Slots, SlotExtraction } from '../../../src/core/nlu/slots.js'
-import { interpret } from '../../../src/core/nlu/interpret.js'
-import type { ModelSlots, Interpretation } from '../../../src/core/nlu/interpret.js'
-import { decide } from '../../../src/core/nlu/confirm-policy.js'
-import type { Book, Confidence, DimensionAxisDef, Money } from '../../../src/core/types.js'
+import { extractSlots } from '../../../src/engine/nlu/slots.js'
+import type { Slots, SlotExtraction } from '../../../src/engine/nlu/slots.js'
+import { interpret } from '../../../src/engine/nlu/interpret.js'
+import type { ModelSlots, Interpretation } from '../../../src/engine/nlu/interpret.js'
+import { decide } from '../../../src/engine/nlu/confirm-policy.js'
+import type { Book, Confidence, DimensionAxisDef, Money } from '../../../src/engine/types.js'
 
 /* ------------------------------------------------------------------ *
  * Fixtures — hand-written, fixed values, no mocking library.

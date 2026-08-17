@@ -97,7 +97,7 @@ MATERIALS 300e                        = /expense with dimension MATERIALS, 300 E
 /expense MARKETING 12000 fb ads       explicit form
 ```
 
-### Amount grammar (`core/money.ts`)
+### Amount grammar (`engine/money.ts`)
 
 Serbian formatting is a minefield and gets its own tested module:
 
@@ -183,7 +183,7 @@ Case-insensitive, diacritics stripped, Levenshtein ≤ 1 — `/expence` and `/tr
 - Every model-derived fact records `method`, `confidence`, and `model` id, so a model upgrade is auditable and selectively re-runnable.
 - `/status` reports the deterministic-vs-model mix, so you can watch it shift toward deterministic as vendor profiles and synonyms accumulate — and notice if it doesn't.
 
-### The confirm policy (`core/nlu/confirm-policy.ts`)
+### The confirm policy (`engine/nlu/confirm-policy.ts`)
 
 The one rule that keeps a flexible front end from becoming a liability:
 

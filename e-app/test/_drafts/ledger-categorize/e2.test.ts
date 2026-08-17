@@ -4,18 +4,18 @@ import {
   categorize,
   type CategorizeInput,
   type CategorizeContext,
-} from '../../../src/core/ledger/categorize.js'
+} from '../../../src/engine/ledger/categorize.js'
 import {
   sortRules,
   ruleMatches,
   deriveRule,
   type CategorizationRule,
-} from '../../../src/core/ledger/rules.js'
+} from '../../../src/engine/ledger/rules.js'
 import {
   vendorIsAmbiguous,
   vendorCategories,
-} from '../../../src/core/ledger/ambiguous-vendor.js'
-import type { Transaction } from '../../../src/core/types.js'
+} from '../../../src/engine/ledger/ambiguous-vendor.js'
+import type { Transaction } from '../../../src/engine/types.js'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Fixtures. No mocking library: every dependency here is a plain literal.

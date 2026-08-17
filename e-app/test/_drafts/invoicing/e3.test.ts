@@ -1,16 +1,16 @@
 import { describe, it, expect } from 'vitest'
-import { resolveVatMode, rendersVatLine } from '../../../src/core/invoicing/vat-mode.js'
-import type { CustomerTaxInfo, VatMode } from '../../../src/core/invoicing/vat-mode.js'
-import { computeTotals, vatRateFor } from '../../../src/core/invoicing/invoice-model.js'
-import type { InvoiceLineItem } from '../../../src/core/invoicing/invoice-model.js'
+import { resolveVatMode, rendersVatLine } from '../../../src/engine/invoicing/vat-mode.js'
+import type { CustomerTaxInfo, VatMode } from '../../../src/engine/invoicing/vat-mode.js'
+import { computeTotals, vatRateFor } from '../../../src/engine/invoicing/invoice-model.js'
+import type { InvoiceLineItem } from '../../../src/engine/invoicing/invoice-model.js'
 import {
   suggestNextNumber,
   isDuplicateNumber,
   validateNumber,
-} from '../../../src/core/invoicing/invoice-number.js'
-import { buildInvoiceData } from '../../../src/core/invoicing/invoice-template.js'
-import type { BuildInvoiceInput } from '../../../src/core/invoicing/invoice-template.js'
-import type { Currency } from '../../../src/core/types.js'
+} from '../../../src/engine/invoicing/invoice-number.js'
+import { buildInvoiceData } from '../../../src/engine/invoicing/invoice-template.js'
+import type { BuildInvoiceInput } from '../../../src/engine/invoicing/invoice-template.js'
+import type { Currency } from '../../../src/engine/types.js'
 
 // ---------------------------------------------------------------------------
 // Hand-written fixtures. No mocking library, no clock, no randomness: every

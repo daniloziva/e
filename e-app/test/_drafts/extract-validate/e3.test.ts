@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateFacts } from '../../../src/core/extract/validate.js'
+import { validateFacts } from '../../../src/engine/extract/validate.js'
 import type {
   Clock,
   Confidence,
@@ -8,7 +8,7 @@ import type {
   Extraction,
   ExtractionMethod,
   LineItem,
-} from '../../../src/core/types.js'
+} from '../../../src/engine/types.js'
 
 // ---------------------------------------------------------------------------
 // Hand-written fakes. No mocking library: a Clock is one method with a fixed

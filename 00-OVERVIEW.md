@@ -62,7 +62,7 @@ Reasoning: 1IA's complexity is multi-tenancy (setup app, setup tokens, tenant pr
 
 **Deliberately dropped:** setup-app, setup_tokens, tenants/multi-tenancy, APR client, RFZO checker, paušalac limits, KEP book (a paušalac register; DILIGAF is a DOO), `db.ts` and all SQL (D2 — no database), and the SEF **sales**-invoice XML builder (D10 — purchase-invoice functions are kept).
 
-**Rebuilt, not copied:** everything gets restructured into `core/` (pure, tested) and `adapters/` (I/O, faked in tests). The current code calls `supabase` and `fetch` at module scope and reads `process.env` at import time — that is untestable, and E is a TDD project. See `01-ARCHITECTURE.md`.
+**Rebuilt, not copied:** everything gets restructured into `engine/` (pure, tested) and `adapters/` (I/O, faked in tests). The current code calls `supabase` and `fetch` at module scope and reads `process.env` at import time — that is untestable, and E is a TDD project. See `01-ARCHITECTURE.md`.
 
 ## Decisions already made (no need to discuss unless you disagree)
 

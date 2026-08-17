@@ -5,8 +5,8 @@ import {
   recentAxisValues,
   resolveDimensions,
   type AxisResolution,
-} from '../../../src/core/dimensions.js'
-import type { DimensionAxisDef, DimensionValues } from '../../../src/core/types.js'
+} from '../../../src/engine/dimensions.js'
+import type { DimensionAxisDef, DimensionValues } from '../../../src/engine/types.js'
 
 // ---------------------------------------------------------------------------
 // Fixtures — the SMOQUA axes exactly as declared in 05-SMOQUA.md §2.

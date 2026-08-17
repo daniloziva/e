@@ -21,16 +21,16 @@
  *    literal 'manual' (2-of-3).
  *  - vendorKey's name fallback is a lowercase hyphen slug with diacritics folded
  *    to their bare letter (2-of-3).
- *  - Range rules on amounts and dates belong to core/extract/validate.ts (§5
+ *  - Range rules on amounts and dates belong to engine/extract/validate.ts (§5
  *    "Validation and failure"), so nothing here re-implements them.
  */
 
 import { describe, it, expect } from 'vitest'
-import { runLadder } from '../../src/core/extract/ladder.js'
-import type { LadderInput, Rung, RungResult } from '../../src/core/extract/ladder.js'
-import { vendorKey, learnFromCorrection, applyProfile } from '../../src/core/extract/vendor-profile.js'
-import type { VendorProfile, RawCandidates } from '../../src/core/extract/vendor-profile.js'
-import type { Clock, Confidence, ExtractedFacts, ExtractionMethod } from '../../src/core/types.js'
+import { runLadder } from '../../src/engine/extract/ladder.js'
+import type { LadderInput, Rung, RungResult } from '../../src/engine/extract/ladder.js'
+import { vendorKey, learnFromCorrection, applyProfile } from '../../src/engine/extract/vendor-profile.js'
+import type { VendorProfile, RawCandidates } from '../../src/engine/extract/vendor-profile.js'
+import type { Clock, Confidence, ExtractedFacts, ExtractionMethod } from '../../src/engine/types.js'
 
 // ---------------------------------------------------------------------------
 // Hand-written fakes. No mocking library anywhere in this file: a Clock is one
@@ -1098,7 +1098,7 @@ describe('applyProfile', () => {
 
     // MERGE NOTE — e3 additionally required a NEGATIVE total to yield null. Dropped:
     // §5 "Validation and failure" gives the 0 < amount_total < 10,000,000 range to
-    // core/extract/validate.ts, so this layer must not re-implement it. e1's zero
+    // engine/extract/validate.ts, so this layer must not re-implement it. e1's zero
     // case pins that division. Recorded as a spec gap.
     it('parses a zero total rather than re-implementing the range rules validate owns', () => {
       expect(totalFrom(',', '0,00')).toBe(0)

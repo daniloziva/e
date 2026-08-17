@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { categorize } from '../../../src/core/ledger/categorize.js'
-import type { CategorizeContext, CategorizeInput } from '../../../src/core/ledger/categorize.js'
-import { sortRules, ruleMatches, deriveRule } from '../../../src/core/ledger/rules.js'
-import type { CategorizationRule } from '../../../src/core/ledger/rules.js'
-import { vendorIsAmbiguous, vendorCategories } from '../../../src/core/ledger/ambiguous-vendor.js'
-import type { Transaction } from '../../../src/core/types.js'
+import { categorize } from '../../../src/engine/ledger/categorize.js'
+import type { CategorizeContext, CategorizeInput } from '../../../src/engine/ledger/categorize.js'
+import { sortRules, ruleMatches, deriveRule } from '../../../src/engine/ledger/rules.js'
+import type { CategorizationRule } from '../../../src/engine/ledger/rules.js'
+import { vendorIsAmbiguous, vendorCategories } from '../../../src/engine/ledger/ambiguous-vendor.js'
+import type { Transaction } from '../../../src/engine/types.js'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Fixtures — plain hand-written values, no mocking library.

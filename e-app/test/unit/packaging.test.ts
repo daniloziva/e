@@ -6,18 +6,18 @@ import {
   type Manifest,
   type ManifestGroup,
   type ManifestRow,
-} from '../../src/core/packaging/manifest.js'
-import { buildEmailBody, buildEmailSubject, periodLabel } from '../../src/core/packaging/email-body.js'
-import { previousMonth, currentMonth, monthBounds, periodOf } from '../../src/core/clock.js'
-import type { Clock, DocCategory, DocumentFacts, ExtractionMethod, ReviewStatus } from '../../src/core/types.js'
+} from '../../src/engine/packaging/manifest.js'
+import { buildEmailBody, buildEmailSubject, periodLabel } from '../../src/engine/packaging/email-body.js'
+import { previousMonth, currentMonth, monthBounds, periodOf } from '../../src/engine/clock.js'
+import type { Clock, DocCategory, DocumentFacts, ExtractionMethod, ReviewStatus } from '../../src/engine/types.js'
 
 /* ═══════════════════════════════════════════════════════════════════════════
  * AREA — the monthly accountant package: manifest, email body, period math.
  *
  * Under test (contract order):
- *   src/core/packaging/manifest.ts    buildManifest, manifestToCsv
- *   src/core/packaging/email-body.ts  buildEmailBody, buildEmailSubject, periodLabel
- *   src/core/clock.ts                 previousMonth, currentMonth, monthBounds, periodOf
+ *   src/engine/packaging/manifest.ts    buildManifest, manifestToCsv
+ *   src/engine/packaging/email-body.ts  buildEmailBody, buildEmailSubject, periodLabel
+ *   src/engine/clock.ts                 previousMonth, currentMonth, monthBounds, periodOf
  *
  * Spec: 03-DILIGAF.md §5 (monthly package: period semantics D6, the worked
  *       email body, the ⚠ lines, the extraction_method column)

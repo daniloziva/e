@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest'
 
-import { resolveBook, getBook, bookAllowsCommand } from '../../src/core/books.js'
-import { parseCommand } from '../../src/core/command-parser.js'
-import type { Command, CommandName } from '../../src/core/command-parser.js'
-import type { Book, BookCode } from '../../src/core/types.js'
+import { resolveBook, getBook, bookAllowsCommand } from '../../src/engine/books.js'
+import { parseCommand } from '../../src/engine/command-parser.js'
+import type { Command, CommandName } from '../../src/engine/command-parser.js'
+import type { Book, BookCode } from '../../src/engine/types.js'
 
 // ---------------------------------------------------------------------------
 // Merged from three independent drafts (test/_drafts/books-commands/).
-// Contract: src/core/books.ts, src/core/command-parser.ts, src/core/types.ts
+// Contract: src/engine/books.ts, src/engine/command-parser.ts, src/engine/types.ts
 // Spec:     02-WHATSAPP-INTERFACE.md §4, §5, §5.1, §7 · 00-OVERVIEW.md D1, D11
 //
 // Fixtures are hand-written: every function under test is pure and synchronous,

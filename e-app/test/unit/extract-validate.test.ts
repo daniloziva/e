@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateFacts } from '../../src/core/extract/validate.js'
+import { validateFacts } from '../../src/engine/extract/validate.js'
 import type {
   Clock,
   Confidence,
@@ -8,7 +8,7 @@ import type {
   Extraction,
   ExtractionMethod,
   LineItem,
-} from '../../src/core/types.js'
+} from '../../src/engine/types.js'
 
 // ---------------------------------------------------------------------------
 // Hand-written fakes. No mocking library: a Clock is one method returning a
@@ -160,7 +160,7 @@ describe('validateFacts', () => {
     const dirty = facts({
       vendorPib: '12345678',
       docDate: '2030-01-01',
-      amountTotal: 12_000_000,
+      amountTotal: 120_000_000,
       vatAmount: 400,
       currency: offAllowlist('EVRA'),
     })
@@ -196,7 +196,7 @@ describe('validateFacts', () => {
     })
 
     it('does not trust a manually entered amount any more than a photographed one', () => {
-      const overLimit = facts({ amountTotal: 10_000_000, vatAmount: null })
+      const overLimit = facts({ amountTotal: 100_000_000, vatAmount: null })
 
       const manual = validateFacts(overLimit, extraction({ method: 'manual', confidence: 'exact' }), CLOCK)
       const vision = validateFacts(overLimit, extraction({ method: 'llm_vision', confidence: 'exact' }), CLOCK)
@@ -483,7 +483,7 @@ describe('validateFacts', () => {
   })
 
   // -------------------------------------------------------------------------
-  // amountTotal — 0 < x < 10_000_000, both ends exclusive
+  // amountTotal — 0 < x < 100_000_000, both ends exclusive
   // -------------------------------------------------------------------------
 
   describe('amountTotal bounds are exclusive at both ends', () => {
@@ -491,7 +491,7 @@ describe('validateFacts', () => {
       ['the smallest amount above zero', 0.01],
       ['a typical receipt total', 1234.56],
       ['an ordinary invoice total', 4210],
-      ['a fraction below the upper bound', 9_999_999.99],
+      ['a fraction below the upper bound', 99_999_999.99],
     ])('keeps an amountTotal that is %s', (_label, amountTotal) => {
       const result = validateFacts(
         facts({ amountTotal, vatAmount: null }),
@@ -508,9 +508,9 @@ describe('validateFacts', () => {
       ['negative zero', -0],
       ['a hair below zero', -0.01],
       ['a negative total', -1200],
-      ['exactly ten million — the upper bound is exclusive', 10_000_000],
-      ['a hair above ten million', 10_000_000.01],
-      ['a decimal point misread as a thousands separator', 120_000_000],
+      ['exactly one hundred million — the upper bound is exclusive', 100_000_000],
+      ['a hair above one hundred million', 100_000_000.01],
+      ['a decimal point misread as a thousands separator', 1_200_000_000],
       ['NaN', Number.NaN],
       ['Infinity', Number.POSITIVE_INFINITY],
       ['negative Infinity', Number.NEGATIVE_INFINITY],
@@ -527,13 +527,13 @@ describe('validateFacts', () => {
 
     it('nulls an out-of-range total instead of clamping it to the limit', () => {
       const result = validateFacts(
-        facts({ amountTotal: 50_000_000, vatAmount: null }),
+        facts({ amountTotal: 500_000_000, vatAmount: null }),
         REGEX_RUNG,
         CLOCK,
       )
 
       expect(result.facts.amountTotal).toBeNull()
-      expect(result.facts.amountTotal).not.toBe(10_000_000)
+      expect(result.facts.amountTotal).not.toBe(100_000_000)
     })
 
     it('leaves an absent total null without reporting it as rejected', () => {
@@ -643,7 +643,7 @@ describe('validateFacts', () => {
     // worse than no VAT at all. Keeping it is the other defensible reading.
     it('drops the VAT when the total was itself rejected, since nothing can vouch for it', () => {
       const result = validateFacts(
-        facts({ vatAmount: 200, amountTotal: 20_000_000 }),
+        facts({ vatAmount: 200, amountTotal: 200_000_000 }),
         REGEX_RUNG,
         CLOCK,
       )
@@ -762,7 +762,7 @@ describe('validateFacts', () => {
 
     it.each([
       ['the total was never read', { amountTotal: null, vatAmount: null }],
-      ['the total was read but failed the bounds', { amountTotal: 10_000_000, vatAmount: null }],
+      ['the total was read but failed the bounds', { amountTotal: 100_000_000, vatAmount: null }],
       ['the total was read as zero', { amountTotal: 0, vatAmount: null }],
       ['the date was never read', { docDate: null }],
       ['the date fell outside the window', { docDate: '2019-01-01' }],
@@ -890,7 +890,7 @@ describe('validateFacts', () => {
     })
 
     it('returns the same verdict for the same input every time it is called', () => {
-      const input = facts({ vendorPib: '1234567890', docDate: LOWER_BOUND, amountTotal: 10_000_000 })
+      const input = facts({ vendorPib: '1234567890', docDate: LOWER_BOUND, amountTotal: 100_000_000 })
 
       const first = validateFacts(input, MODEL_RUNG, CLOCK)
       const second = validateFacts(input, MODEL_RUNG, CLOCK)

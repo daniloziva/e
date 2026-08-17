@@ -5,8 +5,8 @@ import {
   type MailEnvelope,
   type MailRule,
   type RouteResult,
-} from '../../../src/core/mail/route.js'
-import type { BookCode, DocCategory } from '../../../src/core/types.js'
+} from '../../../src/engine/mail/route.js'
+import type { BookCode, DocCategory } from '../../../src/engine/types.js'
 
 // ---------------------------------------------------------------------------
 // Fixtures

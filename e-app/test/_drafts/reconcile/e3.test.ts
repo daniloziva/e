@@ -4,7 +4,7 @@ import {
   totalsFromTransactions,
   type StatementTotals,
   type ReconcileResult,
-} from '../../../src/core/statements/reconcile.js'
+} from '../../../src/engine/statements/reconcile.js'
 
 /**
  * Statement reconciliation guard — 04-PERSONAL.md §2.

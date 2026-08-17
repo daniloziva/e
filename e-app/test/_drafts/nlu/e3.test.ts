@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest'
 
-import { extractSlots, type Slots } from '../../../src/core/nlu/slots.js'
-import { interpret, type ModelSlots, type Interpretation } from '../../../src/core/nlu/interpret.js'
-import { decide } from '../../../src/core/nlu/confirm-policy.js'
-import type { Book, DimensionAxisDef, Confidence, Money } from '../../../src/core/types.js'
+import { extractSlots, type Slots } from '../../../src/engine/nlu/slots.js'
+import { interpret, type ModelSlots, type Interpretation } from '../../../src/engine/nlu/interpret.js'
+import { decide } from '../../../src/engine/nlu/confirm-policy.js'
+import type { Book, DimensionAxisDef, Confidence, Money } from '../../../src/engine/types.js'
 
 // ---------------------------------------------------------------------------
 // Fixtures — plain hand-written data. None of the three functions under test

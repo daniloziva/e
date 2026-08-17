@@ -5,7 +5,7 @@ import {
   filterTransactions,
   searchDocuments,
   type AggregateQuery,
-} from '../../../src/core/tebra/aggregate.js'
+} from '../../../src/engine/tebra/aggregate.js'
 
 import {
   sideEffectOf,
@@ -15,9 +15,9 @@ import {
   budgetExceeded,
   type ToolCall,
   type LoopBudget,
-} from '../../../src/core/tebra/guard.js'
+} from '../../../src/engine/tebra/guard.js'
 
-import type { Transaction, DocumentFacts, DimensionValues, Currency } from '../../../src/core/types.js'
+import type { Transaction, DocumentFacts, DimensionValues, Currency } from '../../../src/engine/types.js'
 
 // ---------------------------------------------------------------------------
 // Fixtures — hand-written, no factories from src, no mocking library.

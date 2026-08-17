@@ -25,7 +25,7 @@ Every feature in `03`–`05` is a path through those four verbs, so the pipeline
                                       │
   iCloud / self-hosted                │
    mailbox  ◄──IMAP poll──►┌──────────▼──────────────┐
-            ◄──SMTP send───│  core/  (pure, tested)  │
+            ◄──SMTP send───│  engine/ (pure, tested) │
                            │  routing · parsing ·    │      ┌──────────────────────┐
    SEF eFaktura ◄─poll 30m►│  extraction rules ·     │◄────►│  Azure Blob Storage  │
                            │  folding · compiling    │      │  (THE store)         │
@@ -163,7 +163,7 @@ e-app/
         sef-digest-timer.ts
         monthly-package-timer.ts
         health.ts
-      core/                       ← PURE. no fetch, no fs, no env, no clock, no randomness.
+      engine/                     ← PURE. no fetch, no fs, no env, no clock, no randomness.
         books.ts                  ← phone → book, book config shape
         command-parser.ts
         money.ts                  ← "4.210,00" | "300e" | "12k" → amount + currency
@@ -244,7 +244,7 @@ e-app/
   infra/
 ```
 
-**The rule:** `functions/` parse a trigger, call one `app/` function, return. `core/` never imports `adapters/` (eslint-enforced). `app/` receives adapters as arguments. That's the whole discipline, and it's what makes §5 and §6 testable without a network.
+**The rule:** `functions/` parse a trigger, call one `app/` function, return. `engine/` never imports `adapters/` (eslint-enforced). `app/` receives adapters as arguments. That's the whole discipline, and it's what makes §5 and §6 testable without a network.
 
 ## 5. The hybrid principle: the model proposes, the code decides
 
@@ -261,7 +261,7 @@ E uses AI wherever input is genuinely unstructured, and never for control flow. 
 Five mechanisms turn "an LLM is in the loop" into a system you can still trust and audit:
 
 1. **Structured output only.** Every model call returns JSON against a fixed schema (tool/function calling). Free text never drives behavior. If the JSON doesn't validate, it's a failure, not an interpretation.
-2. **Same validators regardless of source.** `core/extract/validate.ts` runs on model output exactly as it runs on regex output. PIB is 9 digits or null whether a human, a regex, or GPT produced it.
+2. **Same validators regardless of source.** `engine/extract/validate.ts` runs on model output exactly as it runs on regex output. PIB is 9 digits or null whether a human, a regex, or GPT produced it.
 3. **Cache by content hash.** `_cache/extract/{sha256}.json` and `_cache/intent/{hash(normalized text)}.json`. The same receipt image or the same phrase resolves identically forever — re-running a month reuses the cached answer unless you explicitly invalidate. **This is what makes the system reproducible even though the model isn't deterministic**, and it's the property you actually wanted when you said "deterministic".
 4. **Provenance on every fact.** `extraction.method`, `confidence`, `model` (e.g. `gpt-4o-mini@2026-05`), and the raw response. When a model version changes, you can tell exactly which facts came from the old one and re-run only those.
 5. **Confirm when uncertain, commit when not.** High confidence with every slot filled → E just does it and shows a one-line receipt with `[Ispravi]`. Anything ambiguous → E echoes its interpretation and waits for a tap. The model never silently commits money it wasn't sure about.
@@ -310,7 +310,7 @@ Why one file rather than a file per vendor: a filename derived from mutable data
 
 Second invoice from a known vendor takes layer 2 and never reaches the model. So **90 layouts becomes 90 one-time corrections**, after which the common path is deterministic again. The system converges toward the cheap rungs instead of sitting permanently on the expensive one — and `/status` reports the mix so you can watch it happen.
 
-**Trust labels are atomic keys, never paths.** `applyProfile` reads `raw[profile.trust[field]]` — one flat lookup. Adapters flatten their own wire shapes into that map, so `core/` never learns Document Intelligence's response tree (and the `core/` ↔ `adapters/` import ban stays meaningful). This is also a security boundary: trust labels live in `_state`, which `/tebra` can propose edits to, so treating one as a dotted path would turn `__proto__.polluted` into a write into `Object.prototype` reachable from a model-authored proposal. Asserted in `test/unit/extract-ladder.test.ts`.
+**Trust labels are atomic keys, never paths.** `applyProfile` reads `raw[profile.trust[field]]` — one flat lookup. Adapters flatten their own wire shapes into that map, so `engine/` never learns Document Intelligence's response tree (and the `engine/` ↔ `adapters/` import ban stays meaningful). This is also a security boundary: trust labels live in `_state`, which `/tebra` can propose edits to, so treating one as a dotted path would turn `__proto__.polluted` into a write into `Object.prototype` reachable from a model-authored proposal. Asserted in `test/unit/extract-ladder.test.ts`.
 
 Second invoice from that vendor takes layer 2 and never reaches the model. So **90 layouts becomes 90 one-time corrections**, after which the common path is deterministic again. The system converges toward the cheap rungs instead of sitting permanently on the expensive one — and `/status` reports the mix so you can watch it happen.
 
@@ -322,7 +322,7 @@ Second invoice from that vendor takes layer 2 and never reaches the model. So **
 
 ### Validation and failure
 
-`core/extract/validate.ts` applies to every layer's output: PIB exactly 9 digits or null; `doc_date` within `[now − 18 months, now + 2 days]`; `0 < amount_total < 10,000,000`; `vat_amount ≤ amount_total` or drop the VAT only; currency from an allowlist. Any null in `{amount_total, doc_date}`, or confidence below threshold, ⇒ `review_status='needs_review'`.
+`engine/extract/validate.ts` applies to every layer's output: PIB exactly 9 digits or null; `doc_date` within `[now − 18 months, now + 2 days]`; `0 < amount_total < 100,000,000`; `vat_amount ≤ amount_total` or drop the VAT only; currency from an allowlist. Any null in `{amount_total, doc_date}`, or confidence below threshold, ⇒ `review_status='needs_review'`.
 
 **Extraction failure never blocks storage.** The bytes land first, always. A receipt with an unreadable total is stored, queued, and one tap from fixed.
 
@@ -431,7 +431,7 @@ Two caveats stated rather than buried: (a) an IMAP password in Key Vault is a lo
 - Every inbound event writes an `_index/event/*` marker with `If-None-Match: *` **before** doing work. Repeats are no-ops. WhatsApp redelivers; timers can double-fire on scale-out.
 - Mail idempotency is primarily structural (folder moves, §6).
 - Timers check `_state/notified/*` so the digest and the monthly package can't send twice.
-- `core/` never reads the clock or generates ids — `Clock` and `IdGen` are injected. Month boundaries, "previous month" on 1 January, leap years, and the DST drift on the 06:00 UTC timer all become plain unit tests rather than things you discover in January.
+- `engine/` never reads the clock or generates ids — `Clock` and `IdGen` are injected. Month boundaries, "previous month" on 1 January, leap years, and the DST drift on the 06:00 UTC timer all become plain unit tests rather than things you discover in January.
 - Timers are declared in UTC with an explicit CET/CEST comment. The *which month am I packaging* decision is a pure function of the injected clock, never of the cron expression — so DST drift can shift the hour but can never pick the wrong month.
 
 ## 10. Dependencies

@@ -3,7 +3,7 @@ import {
   reconcile,
   totalsFromTransactions,
   type StatementTotals,
-} from '../../../src/core/statements/reconcile.js'
+} from '../../../src/engine/statements/reconcile.js'
 
 /**
  * Statement reconciliation guard — 04-PERSONAL §2 "The reconciliation guard (non-negotiable)".

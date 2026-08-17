@@ -41,7 +41,7 @@ You said "the MCP we infuse in the background." Here's the shape I'd argue for:
 **Define the tool surface once. Expose it twice.**
 
 ```
-core/tebra/tools/*.ts          ← the tools: typed, pure-ish, unit-tested
+engine/tebra/tools/*.ts          ← the tools: typed, pure-ish, unit-tested
         │
         ├── in-process  →  /tebra loop in the function app        (fast path, no round trip)
         └── MCP server  →  external clients                        (Claude Desktop, Claude Code, anything)

@@ -3,23 +3,23 @@ import {
   aggregate,
   filterTransactions,
   searchDocuments,
-} from '../../../src/core/tebra/aggregate.js'
+} from '../../../src/engine/tebra/aggregate.js'
 import type {
   AggregateQuery,
   AggregateResult,
   AggregateRow,
   DocumentFilter,
   TransactionFilter,
-} from '../../../src/core/tebra/aggregate.js'
+} from '../../../src/engine/tebra/aggregate.js'
 import {
   budgetExceeded,
   enforceBookScope,
   isExecutableInLoop,
   sideEffectOf,
   wrapUntrusted,
-} from '../../../src/core/tebra/guard.js'
-import type { BudgetState, LoopBudget, ToolCall } from '../../../src/core/tebra/guard.js'
-import type { BookCode, DocumentFacts, Transaction } from '../../../src/core/types.js'
+} from '../../../src/engine/tebra/guard.js'
+import type { BudgetState, LoopBudget, ToolCall } from '../../../src/engine/tebra/guard.js'
+import type { BookCode, DocumentFacts, Transaction } from '../../../src/engine/types.js'
 
 // ---------------------------------------------------------------------------
 // Fixtures — hand-written, no mocking library, no clock/id injection needed

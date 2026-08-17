@@ -28,7 +28,7 @@ Nothing user-visible. Exists so that M1 can be written test-first on day one ins
 
 **Build:**
 - Repo `E/e-app`, structure per `01-ARCHITECTURE.md` §4
-- vitest + coverage thresholds + eslint (incl. the `core/` → `adapters/` import ban)
+- vitest + coverage thresholds + eslint (incl. the `engine/` → `adapters/` import ban)
 - Docker compose: **Azurite only** (no Postgres — D2)
 - `BlobStore` interface + Azure impl + `InMemoryBlobStore`, sharing one contract test suite
 - Fakes: `FakeClock`, `SeqIdGen`, `FakeWhatsApp`, per-layer extractor stubs
@@ -61,16 +61,40 @@ The milestone that matters. Everything else is bookkeeping.
 
 These two spikes decide the *shape* of the ladder — which rungs exist and in what order. Doing them first is cheaper than building rungs and discovering they're dead weight.
 
+**S-QR outcome, and the v1.1 ruling (Danilo, 2026-08-15).** The spike is answered
+far enough to build on. The layer 1 *contract* is confirmed and good: the QR carries
+only a verification URL, that URL answers a plain `GET` with `Accept: application/json`
+and no authentication, and the response includes a populated `items[]` — enough to
+categorize deterministically with no model at all. Two caveats: there is **no structured
+VAT field** (the tax breakdown lives only inside the `journal` free-text blob, so
+`vatAmount` and `amountNet` need parsing even on the happy path), and the QR's real-world
+**hit rate is poor** — on a real receipt it could not be read by any phone scanner tried,
+because the payload is a signed blob of ~400–600 bytes printed at ~2cm on thermal paper.
+
+**The ruling: do not engineer around a failed QR.** When layer 1 misses, fall straight
+back to Document Intelligence and then to the OpenAI parser — the rungs the ladder
+already defines. That is judged sufficient for precision, and it is the **v1.1 MVP**
+extraction path:
+
+```
+QR (layer 1)  →  Document Intelligence (layer 4)  →  OpenAI parser (layer 5)
+```
+
+The practical consequence is that no effort goes into QR recovery heroics — image
+preprocessing, perspective correction, multi-pass decoding. One decode attempt, then
+fall through. `extract/ladder.ts` already short-circuits on the first success, so this
+needs no structural change; it is a decision about where NOT to spend effort.
+
 Both spike outputs become the first entries in the eval corpus (`06-TDD-STRATEGY.md` §4.5), so the accuracy numbers that justified the design stay measurable later.
 
 **Build:**
 - `whatsapp-webhook` with **HMAC signature verification** and sender allowlist
 - `parseInboundMessage` — text/image/document/button/list (+ explicit unsupported-type reply)
-- `parseCommand` + `core/money.ts`
+- `parseCommand` + `engine/money.ts`
 - `adapters/whatsapp/media.ts` — media-id → bytes (the reusable half of `voice-handler`)
 - `ingestDocument` pipeline (fingerprint → dedupe → ladder → validate → path → bytes → sidecar)
 - Extraction ladder: **cache → fiscal QR → PDF text → DI** (per spike outcomes), **LLM vision** as the fallback rung
-- `core/nlu/*` — deterministic slots, synonym table, model slot-fill, merge, confirm policy
+- `engine/nlu/*` — deterministic slots, synonym table, model slot-fill, merge, confirm policy
 - `_cache/*` content-hash caching, provenance (`method`/`confidence`/`model`) on every fact
 - `_queue/review` pointers + `[Unesi iznos]` manual path (layer 5)
 - Receipt reply + `[Ispravi] [SMOQUA] [Obriši]`; `[Ispravi]` mini-wizard
@@ -110,7 +134,7 @@ Both spike outputs become the first entries in the eval corpus (`06-TDD-STRATEGY
 **Build:**
 - `adapters/mail/imap.ts` — imapflow: connect, fetch UNSEEN, parse (mailparser), **move to `E/Processed` / `E/Failed`**
 - `imap-poll-timer` (10 min)
-- `core/mail/route.ts` — the rules table
+- `engine/mail/route.ts` — the rules table
 - `adapters/pdf/text-extract.ts` (pdfjs — text + coordinates)
 - Izvod period/number detection (layer 0 regex)
 - Server-side mail rule filing into `E/Inbox` (config, not code)
@@ -136,10 +160,10 @@ Scope narrowed by D10, D12, D13: **PDF only, you own the numbering, VAT derived 
 
 **Build:**
 - `_state/customers/{id}.json` (incl. `country`, `is_business`, `last_*`) + used-number markers
-- `core/invoicing/invoice-model.ts` — VAT modes, totals, rounding
-- `core/invoicing/vat-mode.ts` — `resolveVatMode(customer)`
-- `core/invoicing/invoice-number.ts` — `suggestNextNumber(last)`
-- `core/invoicing/invoice-template.ts` → `PdfInvoiceData`
+- `engine/invoicing/invoice-model.ts` — VAT modes, totals, rounding
+- `engine/invoicing/vat-mode.ts` — `resolveVatMode(customer)`
+- `engine/invoicing/invoice-number.ts` — `suggestNextNumber(last)`
+- `engine/invoicing/invoice-template.ts` → `PdfInvoiceData`
 - `adapters/pdf/invoice-pdf.ts` (pdfkit, from 1IA) — PDV lines domestic, exemption note international, **text invoice number** (1IA's zero-padded integer assumption removed)
 - `/invoice` wizard on `_state/conv`: customer → suggested number → prefilled description/amount → confirm
 - Duplicate-number warning
@@ -165,7 +189,7 @@ Scope narrowed by D10, D12, D13: **PDF only, you own the numbering, VAT derived 
 ## M4 — Monthly accountant package
 
 **Build:**
-- `core/packaging/manifest.ts` + `email-body.ts`
+- `engine/packaging/manifest.ts` + `email-body.ts`
 - `adapters/zip/archive.ts` (fflate)
 - `send-monthly-package` use case, `previousMonth` from injected clock, docs by **prefix listing**
 - `monthly-package-timer` (1st, 06:00 UTC)
@@ -195,8 +219,8 @@ Scope narrowed by D10, D12, D13: **PDF only, you own the numbering, VAT derived 
 Pulled forward deliberately: cheap once the store exists, no write-risk to design around, and the fastest way to learn whether you actually reach for this command. If you don't use the read-only version, M8 isn't worth building.
 
 **Build:**
-- `core/tebra/tools/*` — `search_documents`, `get_document`, `query_transactions`, `aggregate`, `list_periods`, `get_rules`, `get_status`, `compare_periods`
-- `core/tebra/render/*` — table, CSV, XLSX, chart
+- `engine/tebra/tools/*` — `search_documents`, `get_document`, `query_transactions`, `aggregate`, `list_periods`, `get_rules`, `get_status`, `compare_periods`
+- `engine/tebra/render/*` — table, CSV, XLSX, chart
 - `app/run-tebra.ts` — the bounded agentic loop (step cap, row cap, token cap)
 - Book scoping injected server-side, outside the model's reach
 - Untrusted-content wrapping for any document/email text entering context
@@ -333,7 +357,7 @@ Small, because M1 did the work.
 Same tools, second transport. Reads first; writes only if you want them from a laptop too.
 
 **Build:**
-- MCP server exposing `core/tebra/tools/*` with their existing schemas
+- MCP server exposing `engine/tebra/tools/*` with their existing schemas
 - auth (local credential vs hosted token — see `09-TEBRA.md` §9 Q3)
 - book scoping enforced by the credential, not by the caller
 
@@ -351,6 +375,7 @@ Same tools, second transport. Reads first; writes only if you want them from a l
 - **Per-transaction bank emails** — same-day personal tracking (`04-PERSONAL.md` §5)
 - **SMOQUA accountant package** — one `books.json` edit + reuse of M4
 - **Weekly nudge** — "3 things need review" on Sunday evening
+- **Setup guide — "here are your currencies and synonyms"** — surface the deterministic tables E already carries (currency synonyms, dimension aliases, category rules, per-book command permissions) as something you can read and correct at setup, rather than discovering them by being misunderstood. Cheap: the tables exist and are pure, so this is a render plus an edit path into `_state`, not new logic. Two prerequisites, both already known: built-in synonyms win over learned ones (settled 2026-08-15, so the guide shows an authoritative list rather than a merged guess), and `money.ts` and `nlu/synonyms.ts` deliberately hold **separate** currency tables — the guide must either show one or reconcile them, which is the drift guard described below turning from nice-to-have into a dependency.
 - **Search** — "koliko sam dao na gorivo u julu"; a fold + filter, no new storage needed
 - **Prune the expensive rungs** — if vendor profiles and the cache push LLM usage near zero, tighten thresholds or drop a rung. `extraction.method` in the manifest is the evidence, and `/status` is the dashboard.
 - **Grow the eval corpus into a regression suite** — every correction you make is already a labelled example (`06-TDD-STRATEGY.md` §4.5)

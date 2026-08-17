@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest'
 
-import { previousMonth, currentMonth, monthBounds, periodOf } from '../../../src/core/clock.js'
-import { buildManifest, manifestToCsv } from '../../../src/core/packaging/manifest.js'
-import type { Manifest, ManifestGroup, ManifestRow } from '../../../src/core/packaging/manifest.js'
-import { buildEmailBody, buildEmailSubject, periodLabel } from '../../../src/core/packaging/email-body.js'
-import type { Clock, DocumentFacts, DocCategory, ExtractionMethod } from '../../../src/core/types.js'
+import { previousMonth, currentMonth, monthBounds, periodOf } from '../../../src/engine/clock.js'
+import { buildManifest, manifestToCsv } from '../../../src/engine/packaging/manifest.js'
+import type { Manifest, ManifestGroup, ManifestRow } from '../../../src/engine/packaging/manifest.js'
+import { buildEmailBody, buildEmailSubject, periodLabel } from '../../../src/engine/packaging/email-body.js'
+import type { Clock, DocumentFacts, DocCategory, ExtractionMethod } from '../../../src/engine/types.js'
 
 // ---------------------------------------------------------------------------
 // Hand-written fakes. No mocking library, no real clock, fixed values only.

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { route, mailEventKey } from '../../../src/core/mail/route.js'
-import type { MailEnvelope, MailRule, RouteResult } from '../../../src/core/mail/route.js'
+import { route, mailEventKey } from '../../../src/engine/mail/route.js'
+import type { MailEnvelope, MailRule, RouteResult } from '../../../src/engine/mail/route.js'
 
 /**
  * Email routing rules — 03-DILIGAF.md §1 (routing table), 04-PERSONAL.md §2.

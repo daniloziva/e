@@ -7,19 +7,19 @@
  * the implementation moves, not the assertion.
  *
  * Contract under test:
- *   src/core/clock.ts              previousMonth / currentMonth / monthBounds / periodOf
- *   src/core/packaging/manifest.ts buildManifest / manifestToCsv
- *   src/core/packaging/email-body.ts buildEmailBody / buildEmailSubject / periodLabel
+ *   src/engine/clock.ts              previousMonth / currentMonth / monthBounds / periodOf
+ *   src/engine/packaging/manifest.ts buildManifest / manifestToCsv
+ *   src/engine/packaging/email-body.ts buildEmailBody / buildEmailSubject / periodLabel
  *
  * Spec: 03-DILIGAF.md §5, 01-ARCHITECTURE.md §9 (clock discipline), §5 (provenance).
  */
 
 import { describe, it, expect } from 'vitest'
 
-import { previousMonth, currentMonth, monthBounds, periodOf } from '../../../src/core/clock.js'
-import { buildManifest, manifestToCsv } from '../../../src/core/packaging/manifest.js'
-import type { Manifest, ManifestGroup, ManifestRow } from '../../../src/core/packaging/manifest.js'
-import { buildEmailBody, buildEmailSubject, periodLabel } from '../../../src/core/packaging/email-body.js'
+import { previousMonth, currentMonth, monthBounds, periodOf } from '../../../src/engine/clock.js'
+import { buildManifest, manifestToCsv } from '../../../src/engine/packaging/manifest.js'
+import type { Manifest, ManifestGroup, ManifestRow } from '../../../src/engine/packaging/manifest.js'
+import { buildEmailBody, buildEmailSubject, periodLabel } from '../../../src/engine/packaging/email-body.js'
 import type {
   Clock,
   Currency,
@@ -27,7 +27,7 @@ import type {
   DocumentFacts,
   ExtractionMethod,
   ReviewStatus,
-} from '../../../src/core/types.js'
+} from '../../../src/engine/types.js'
 
 // ───────────────────────────── fakes & fixtures ─────────────────────────────
 // No mocking library. A Clock is two lines of hand-written code with a fixed value.

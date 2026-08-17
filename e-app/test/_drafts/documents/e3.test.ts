@@ -6,9 +6,9 @@ import {
   hashIndexPath,
   parseBlobPath,
   type BlobPathInput,
-} from '../../../src/core/documents/blob-path.js'
-import { fingerprint, extensionFor } from '../../../src/core/documents/fingerprint.js'
-import type { BookCode, DocCategory } from '../../../src/core/types.js'
+} from '../../../src/engine/documents/blob-path.js'
+import { fingerprint, extensionFor } from '../../../src/engine/documents/fingerprint.js'
+import type { BookCode, DocCategory } from '../../../src/engine/types.js'
 
 // ── fixtures ──────────────────────────────────────────────────────────────────
 // 64-hex digests. The first eight characters are the sha8 that lands in a path.

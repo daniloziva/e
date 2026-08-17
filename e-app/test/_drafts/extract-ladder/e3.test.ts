@@ -4,19 +4,19 @@ import {
   type LadderInput,
   type Rung,
   type RungResult,
-} from '../../../src/core/extract/ladder.js'
+} from '../../../src/engine/extract/ladder.js'
 import {
   vendorKey,
   learnFromCorrection,
   applyProfile,
   type VendorProfile,
-} from '../../../src/core/extract/vendor-profile.js'
+} from '../../../src/engine/extract/vendor-profile.js'
 import type {
   Clock,
   Confidence,
   ExtractedFacts,
   ExtractionMethod,
-} from '../../../src/core/types.js'
+} from '../../../src/engine/types.js'
 
 // ---------------------------------------------------------------------------
 // hand-written fakes (no mocking library — 06-TDD-STRATEGY §3)

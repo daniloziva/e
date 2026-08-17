@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import { bookAllowsCommand, getBook, resolveBook } from '../../../src/core/books.js'
-import { parseCommand } from '../../../src/core/command-parser.js'
-import type { Book, BookCode } from '../../../src/core/types.js'
-import type { Command, CommandName } from '../../../src/core/command-parser.js'
+import { bookAllowsCommand, getBook, resolveBook } from '../../../src/engine/books.js'
+import { parseCommand } from '../../../src/engine/command-parser.js'
+import type { Book, BookCode } from '../../../src/engine/types.js'
+import type { Command, CommandName } from '../../../src/engine/command-parser.js'
 
 // ---------------------------------------------------------------------------
 // Fixtures. Hand-written, no mocking library. These functions take no injected

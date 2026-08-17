@@ -3,21 +3,21 @@
  * Engineer #3. Written before any implementation exists: every case below is
  * expected to fail with "not implemented" until the stubs are filled in.
  *
- * Contract: src/core/ledger/fold.ts, normalize.ts, split.ts, src/core/types.ts
+ * Contract: src/engine/ledger/fold.ts, normalize.ts, split.ts, src/engine/types.ts
  * Spec: 01-ARCHITECTURE.md §3, 04-PERSONAL.md §2 Dedupe / §3 Splits, 09-TEBRA.md §4
  */
 
 import { describe, it, expect } from 'vitest'
-import { fold, invert, type LedgerEvent } from '../../../src/core/ledger/fold.js'
+import { fold, invert, type LedgerEvent } from '../../../src/engine/ledger/fold.js'
 import {
   dedupeKey,
   normalizeDescription,
   extractCounterparty,
   toTransaction,
   type RawTransaction,
-} from '../../../src/core/ledger/normalize.js'
-import { validateSplit, suggestSplit, type SplitPart } from '../../../src/core/ledger/split.js'
-import type { Transaction } from '../../../src/core/types.js'
+} from '../../../src/engine/ledger/normalize.js'
+import { validateSplit, suggestSplit, type SplitPart } from '../../../src/engine/ledger/split.js'
+import type { Transaction } from '../../../src/engine/types.js'
 
 // ─────────────────────────── hand-written fakes & builders ───────────────────────────
 

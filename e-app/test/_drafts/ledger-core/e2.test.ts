@@ -1,14 +1,14 @@
 import { describe, it, expect } from 'vitest'
-import { fold, invert, type LedgerEvent } from '../../../src/core/ledger/fold.js'
+import { fold, invert, type LedgerEvent } from '../../../src/engine/ledger/fold.js'
 import {
   dedupeKey,
   normalizeDescription,
   extractCounterparty,
   toTransaction,
   type RawTransaction,
-} from '../../../src/core/ledger/normalize.js'
-import { validateSplit, suggestSplit, type SplitPart } from '../../../src/core/ledger/split.js'
-import type { Transaction } from '../../../src/core/types.js'
+} from '../../../src/engine/ledger/normalize.js'
+import { validateSplit, suggestSplit, type SplitPart } from '../../../src/engine/ledger/split.js'
+import type { Transaction } from '../../../src/engine/types.js'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Hand-written fakes. No mocking library: injected deps are plain functions

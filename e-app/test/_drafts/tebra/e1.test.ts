@@ -5,7 +5,7 @@ import {
   searchDocuments,
   type AggregateQuery,
   type AggregateRow,
-} from '../../../src/core/tebra/aggregate.js'
+} from '../../../src/engine/tebra/aggregate.js'
 import {
   sideEffectOf,
   enforceBookScope,
@@ -15,8 +15,8 @@ import {
   type ToolCall,
   type LoopBudget,
   type BudgetState,
-} from '../../../src/core/tebra/guard.js'
-import type { BookCode, DocumentFacts, Transaction } from '../../../src/core/types.js'
+} from '../../../src/engine/tebra/guard.js'
+import type { BookCode, DocumentFacts, Transaction } from '../../../src/engine/types.js'
 
 // ---------------------------------------------------------------------------
 // Fixtures — hand-written, no factories from other modules, no mocking library.

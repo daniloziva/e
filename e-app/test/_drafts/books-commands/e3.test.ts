@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest'
 
-import { resolveBook, getBook, bookAllowsCommand } from '../../../src/core/books.js'
-import { parseCommand } from '../../../src/core/command-parser.js'
-import type { CommandName } from '../../../src/core/command-parser.js'
-import type { Book, BookCode } from '../../../src/core/types.js'
+import { resolveBook, getBook, bookAllowsCommand } from '../../../src/engine/books.js'
+import { parseCommand } from '../../../src/engine/command-parser.js'
+import type { CommandName } from '../../../src/engine/command-parser.js'
+import type { Book, BookCode } from '../../../src/engine/types.js'
 
 // ---------------------------------------------------------------------------
 // Fixtures — hand-written, no mocking library. `books` is config, so every test

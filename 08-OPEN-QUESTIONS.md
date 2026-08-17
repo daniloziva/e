@@ -20,7 +20,7 @@
 | Q15 | Who owns the invoice number? | **You do — per customer** | No counter, no sequence, no `_state/seq` (D12). Number is text; E suggests by incrementing the trailing digits of that customer's last one, and warns on reuse. M3 got smaller. |
 | — | VAT treatment | **20% domestic, none international** | Derived from the customer's country + `is_business`, never asked (D13). Export renders an exemption note rather than a zero-VAT line. Currency kept independent of VAT. |
 | — | Correcting a wrong stored vendor PIB | **Via `/tebra` + a skill**, hitting blob after your confirmation | No bespoke flow. Adds `set_vendor_profile` / `merge_vendors` as proposal-only write tools (09-TEBRA §3). Safe because `_state/**` carries blob versioning. |
-| — | `applyProfile` raw-candidate shape | **Flat atomic keys**, never dotted paths | Adapters flatten their own wire shapes, so `core/` never learns a provider's response tree. Also a security boundary: a trust label is `_state` data `/tebra` can edit, so path-walking would expose `__proto__`. Asserted in `extract-ladder.test.ts`. |
+| — | `applyProfile` raw-candidate shape | **Flat atomic keys**, never dotted paths | Adapters flatten their own wire shapes, so `engine/` never learns a provider's response tree. Also a security boundary: a trust label is `_state` data `/tebra` can edit, so path-walking would expose `__proto__`. Asserted in `extract-ladder.test.ts`. |
 | — | Vendor-profile re-keying / orphaned files | **No derived filename at all** — one `_state/vendor-profiles.json`, matched on content | Your call. At 50–200 vendors the whole map is ~50 KB; PIB is identity, names are matchable aliases, and there is no key to go stale. ETag CAS handles updates. |
 | — | `vendorKey` normalization (Đ→d vs dj, Cyrillic, punctuation) | **Retired by PIB identity + a canonical name from one source** | Blocked on spike **S-PIB**: APR open data (local, deterministic — 1IA already shipped it) vs the NBS PIB lookup (live, response shape unconfirmed). Foreign vendors have no Serbian PIB and need a name-plus-merge fallback. |
 | Q16 | Fixtures | **You're gathering them** | Drop into `test/fixtures/`. F10 (a QR payload string) is still the highest value-per-second item. |
@@ -40,10 +40,72 @@
 **Need:** one string — the exact wording and legal citation your international invoices should carry in place of a VAT line. E prints it verbatim; I won't compose tax language for you.
 **Also worth confirming while you're asking:** whether all your international customers are businesses. The rule in D13 treats foreign-business as exempt and foreign-individual as domestic-rate, because services to a foreign individual can still attract Serbian VAT depending on the service. If you only ever invoice foreign companies this never fires — but the flag is tracked so it's a data change if it ever does.
 
+**EVIDENCE — the note does not exist today (2026-08-15).** A real issued export invoice
+(`specs/07 Vetatek Danilo.pdf`, invoice `2026007`, DILIGAF → Vetatek LLC, Carlsbad CA,
+10,000 USD for July ERP consultancy) renders:
+
+```
+SUBTOTAL   10000 USD
+VAT            0 USD     ← a zero-rate VAT line
+TOTAL DUE  10000 USD
+```
+
+with **no exemption note anywhere on the document**. That is precisely the presentation
+`03-DILIGAF.md` line 181 forbids — *"`exempt_export` must not render a `PDV 0,00` line as
+though the supply were taxed at zero… Those are different documents to a tax inspector."*
+
+So this is not only a missing input for M3; the invoices going out **now**, by hand, may
+have the same defect. Whether that is a real exposure for a Serbian VAT-registered entity
+invoicing a US company is a question for the accountant, not for this repo — but it is the
+reason Q18 should be asked sooner rather than at M3.
+
+**Two things needed, ideally in one message to the accountant:**
+1. The exact exemption wording and its legal citation, to be printed verbatim.
+2. Whether the invoices already issued without it need anything done about them.
+
+Related fixture: the same PDF also satisfies **F8** (one real issued DILIGAF invoice), and
+pins two facts already in use — export invoices are **USD**, not the EUR the M3 test plan
+assumed, and the invoice number format is `2026007` (year + 3-digit sequence), which is the
+first real input for `suggestNextNumber`.
+
 ### Q16 — Fixtures *(in progress — you're gathering them)*
 Drop into `test/fixtures/`. Full table in `06-TDD-STRATEGY.md` §6. The two cheapest with the most leverage:
 - **F10 — one fiscal receipt's raw QR payload string.** Scan any receipt with a QR app, paste the string. It unblocks the S-QR spike, which decides whether E's most common document needs any ML at all. Highest value per second of your time in the project.
 - **F7 — WhatsApp webhook bodies for `image` and `document`.** Send E one photo once the webhook logs raw bodies.
+
+**Partial progress 2026-08-15 — and one finding that may change the ladder.**
+
+*What is now known.* The TaxCore documentation confirms the QR carries **only** a verification URL;
+totals come from a `GET` with `Accept: application/json`, no authentication. The response carries
+`taxId`, `businessName`, `invoiceResult.totalAmount`, `isValid`, `refundStatus` and — importantly —
+a populated `items[]` array, which is what makes deterministic categorization possible at layer 1.
+**But it carries no structured VAT field**: the tax breakdown exists only inside the `journal`
+free-text blob, so `vatAmount` and `amountNet` need text parsing even on the happy path. The sample
+in the docs is a demo tenant with French tax labels and is not representative; a real Serbian receipt
+uses label `Ђ`, name `О-ПДВ`, rate `20.00` (see `e-app/test/fixtures/f4-nis-petrol-2026-08-06.json`).
+
+*The finding.* On a real receipt, **the QR could not be read by any phone scanner tried.** The payload
+is a signed blob of roughly 400–600 bytes, so the code is dense, printed at ~2cm on thermal paper.
+This is a fact about layer 1's real-world hit rate, not about one receipt.
+
+*Why it matters.* In production E never receives a scan — it receives a **photograph**, and must decode
+the QR from that server-side. Server-side decoding can try much harder than a live camera (rescaling,
+contrast stretching, rotation, tiling), so layer 1 is not dead. But the roadmap's S-QR outcome was
+posed as a binary — *"either layer 1 is confirmed as the primary path, or it is dropped and layer 2
+becomes primary."* The honest current answer is **neither**: the layer 1 *contract* is confirmed and
+good, while its *hit rate* is unproven and looks worse than assumed.
+
+*Consequence — RULED (Danilo, 2026-08-15).* Do not engineer around a failed QR. One decode attempt,
+then fall through to **Document Intelligence → the OpenAI parser**, which is judged sufficient for
+precision. That chain is the **v1.1 MVP** extraction path (`07-ROADMAP.md` §M1). No effort goes into
+QR recovery — image preprocessing, perspective correction, multi-pass decoding. `extract/ladder.ts`
+already short-circuits on the first success, so this changes no structure; it decides where not to
+spend effort.
+
+*Still worth knowing:* everything E needs is also printed in plain text on the receipt — vendor,
+PIB, date, total, VAT, line items, and the buyer's PIB — so `extract/fiscal-receipt-regex.ts`
+remains cheap insurance if the DI/LLM rungs prove expensive in practice. Blocked on F4, of which
+one specimen now exists (`e-app/test/fixtures/f4-nis-petrol-2026-08-06.json`).
 
 ---
 
@@ -76,7 +138,13 @@ Drop into `test/fixtures/`. Full table in `06-TDD-STRATEGY.md` §6. The two chea
 **Why it matters:** if the statement runs e.g. 15th–14th, the "which month is this transaction in" logic changes and the reconciliation guard must use the statement's own period rather than the calendar's.
 
 ### Q13 — Same phone for PERSONAL and DILIGAF?
-**Default:** yes — DILIGAF is the default book, `/cash` and `/misc` reach PERSONAL explicitly.
+**CONFIRMED 2026-08-15:** yes — PERSONAL and DILIGAF share one number; **SMOQUA is a separate number.**
+DILIGAF is the default book for the shared phone, and `/cash` and `/misc` reach PERSONAL explicitly.
+
+Consequence for `resolveBook`: the only collision that can occur in the real table is DILIGAF/PERSONAL,
+which the spec already resolves in DILIGAF's favour. The implementation carries a total precedence
+`DILIGAF > PERSONAL > SMOQUA`; the PERSONAL/SMOQUA half of that order is unreachable with these numbers
+and exists only so the function stays deterministic if a number is ever shared with SMOQUA.
 **Why not a sticky `/book` toggle:** a forgotten mode files a receipt into the wrong book silently, which is the worst class of bug for this tool. If you want the toggle anyway, I'd pair it with the active book echoed in every reply.
 
 ---

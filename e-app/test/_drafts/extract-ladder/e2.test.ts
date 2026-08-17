@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import { runLadder } from '../../../src/core/extract/ladder.js'
-import type { LadderInput, Rung, RungResult } from '../../../src/core/extract/ladder.js'
+import { runLadder } from '../../../src/engine/extract/ladder.js'
+import type { LadderInput, Rung, RungResult } from '../../../src/engine/extract/ladder.js'
 import {
   vendorKey,
   learnFromCorrection,
   applyProfile,
-} from '../../../src/core/extract/vendor-profile.js'
-import type { VendorProfile } from '../../../src/core/extract/vendor-profile.js'
-import type { Clock, ExtractedFacts, ExtractionMethod } from '../../../src/core/types.js'
+} from '../../../src/engine/extract/vendor-profile.js'
+import type { VendorProfile } from '../../../src/engine/extract/vendor-profile.js'
+import type { Clock, ExtractedFacts, ExtractionMethod } from '../../../src/engine/types.js'
 
 // ---------------------------------------------------------------------------
 // Hand-written fakes. No mocking library anywhere in this file.

@@ -1,14 +1,14 @@
 import { describe, it, expect } from 'vitest'
 
-import { parseAmount, formatAmount, round2, toRsd } from '../../../src/core/money.js'
+import { parseAmount, formatAmount, round2, toRsd } from '../../../src/engine/money.js'
 import {
   normalize,
   resolveCurrency,
   fuzzyMatch,
   levenshtein,
   type SynonymTable,
-} from '../../../src/core/nlu/synonyms.js'
-import type { Currency, Money } from '../../../src/core/types.js'
+} from '../../../src/engine/nlu/synonyms.js'
+import type { Currency, Money } from '../../../src/engine/types.js'
 
 // ---------------------------------------------------------------------------
 // Hand-written fixtures. No mocking library; these modules take no injected

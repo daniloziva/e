@@ -20,7 +20,7 @@ Goal: know where your money goes without ever opening a bank app or a spreadshee
 The switch you flagged is designed in from day one:
 
 ```
-core/statements/  →  StatementSource interface
+engine/statements/  →  StatementSource interface
   'monthly_pdf'      parse a whole statement PDF into N transactions
   'tx_email'         parse ONE notification email into 1 transaction
 ```

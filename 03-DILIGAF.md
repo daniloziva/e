@@ -47,17 +47,40 @@ Config: `IMAP_HOST`, `IMAP_PORT`, `IMAP_USER`, `IMAP_PASS` (Key Vault), `IMAP_WA
 
 iCloud specifics: `imap.mail.me.com:993`, **app-specific password required** on a 2FA account. Self-hosted is the more reliable of the two if it already receives the bank mail — Apple rate-limits IMAP connections (a 10-minute poll won't hit it, but it's worth knowing before you scale the interval down).
 
-### Routing table (`core/mail/route.ts`)
+### Routing table (`engine/mail/route.ts`)
 
-| Match | → book | → category |
+| `from` (anchored) | Match | → book | → category |
+|---|---|---|---|
+| `<izvodi@banka-doo.rs>` | `subject` matches the DOO bank's izvod pattern | DILIGAF | `izvod` |
+| *(none — you send these)* | `subject` starts with `E:EXPENSE` or `E:TROSAK` | DILIGAF | `expense` |
+| `<noreply@banka-tekuci.rs>` | `subject` = `Izvod po tekucem racunu/Dinar Current Account Statement` (prefix match) | PERSONAL | `statement` |
+| *(none — you send these)* | `subject` starts with `E:SMOQUA` | SMOQUA | `expense` |
+| — | no match | — | `E/Failed`; E does not guess where an email belongs |
+
+**Write `fromPattern` in the anchored `<addr>` form, always.** `senderMatches` supports three shapes and
+they are not equivalent:
+
+| shape | semantics | refuses |
 |---|---|---|
-| `subject` matches the DOO bank's izvod pattern | DILIGAF | `izvod` |
-| `subject` starts with `E:EXPENSE` or `E:TROSAK` | DILIGAF | `expense` |
-| `subject` = `Izvod po tekucem racunu/Dinar Current Account Statement` (prefix match) | PERSONAL | `statement` |
-| `subject` starts with `E:SMOQUA` | SMOQUA | `expense` |
-| no match | — | `E/Failed`; E does not guess where an email belongs |
+| `<izvodi@banka-doo.rs>` | exact address | display-name spoofing, subdomain suffixes, homoglyphs |
+| `@banka-doo.rs` | domain suffix | display-name spoofing, subdomain suffixes |
+| `izvodi@banka-doo.rs` | substring — **the permissive legacy shape** | display-name spoofing only |
 
-Matching is normalized (lowercase, diacritics stripped, whitespace collapsed) so `tekućem`/`tekucem` and stray double spaces both hit. Rules are ordered, first match wins, and the table is data — so one test enumerates every rule against real subject lines from fixtures.
+An empty or absent `fromPattern` is **no constraint at all**, so a subject-only rule routes any
+sender who guesses the subject line. That is acceptable for the two `E:` rules — those are messages
+*you* send — and unacceptable for a bank rule, where the subject is a fixed string an outsider can
+copy. Fill in the real addresses before this table becomes `_state`.
+
+**Known limitation, and why the anchored form is not sufficient on its own.** `route` currently
+extracts the address by taking the **last** `<…>` in the header, which is a heuristic over a grammar.
+Six RFC-legal `From` shapes defeat it — a multi-mailbox list with the bank last, an RFC 5322 comment,
+a quoted local part, group syntax — and a trailing-dot FQDN is wrongly refused. The real fix belongs
+at the `parse-eml` boundary: `MailEnvelope.from` should carry a single, already-parsed address so
+`route` never sees a display name, a comment or a list. **This is a pre-condition for M2**, recorded
+in `e-app/UNFREEZE-LOG.md` under CANDIDATE-015. Until then, the server-side mail rule (iCloud/Sieve)
+that files bank mail into a folder is the real first line of defence, not this table.
+
+Matching is normalized (lowercase, diacritics stripped, whitespace collapsed) so `tekućem`/`tekucem` and stray double spaces both hit — **except the sender**, which is folded for case and whitespace only, because stripping diacritics from an address collapses `izvodí@…` onto `izvodi@…`. Rules are ordered, first match wins, and the table is data — so one test enumerates every rule against real subject lines from fixtures.
 
 All routing lives here, in code with tests, rather than in mail-client rules. Adding a bank is a tested change, not a click-path nobody remembers next year.
 
@@ -104,7 +127,7 @@ Runs the ladder in `01-ARCHITECTURE.md` §5. For DILIGAF expenses specifically:
 
 The Serbian fiscal receipt is the common case and it's the one with a **legally mandated layout** — PIB, the PDV breakdown, УКУПНО/UKUPNO, fiscal receipt number, timestamp. That's what makes layer 2 a regex parser rather than a model, and layer 1 skips recognition entirely by asking the tax authority what the receipt says.
 
-`core/extract/validate.ts` applies to every layer's output, so a bad read can't propagate regardless of which produced it. Rules and rationale in `01-ARCHITECTURE.md` §5. The chosen layer is recorded in `extraction.method` and surfaced in the manifest and `/status`, so you can watch LLM usage trend toward zero and delete layer 4 if it never fires.
+`engine/extract/validate.ts` applies to every layer's output, so a bad read can't propagate regardless of which produced it. Rules and rationale in `01-ARCHITECTURE.md` §5. The chosen layer is recorded in `extraction.method` and surfaced in the manifest and `/status`, so you can watch LLM usage trend toward zero and delete layer 4 if it never fires.
 
 ---
 
@@ -170,7 +193,7 @@ country !== 'RS' && is_business     → 'exempt_export'   (no VAT + exemption no
 country !== 'RS' && !is_business    → 'standard20'      ⚠ see caveat 2 below
 ```
 
-`core/invoicing/invoice-model.ts` still supports `none | standard20 | reduced10 | exempt_export` — you'll eventually invoice something that isn't 20%, and a general model costs nothing.
+`engine/invoicing/invoice-model.ts` still supports `none | standard20 | reduced10 | exempt_export` — you'll eventually invoice something that isn't 20%, and a general model costs nothing.
 
 ```
 computeTotals(lineItems, vatMode) → { net, vat, total }
@@ -195,7 +218,7 @@ Rounding: 2 decimals, half-up, **per invoice not per line** — the total your a
 Note that 1IA's template assumes an integer number it zero-pads to `0007/2026`. That assumption is gone — the number is a string you supply, rendered as given.
 
 Split for testability:
-- `core/invoicing/invoice-template.ts` builds the fully-resolved `PdfInvoiceData` — **tested exhaustively**
+- `engine/invoicing/invoice-template.ts` builds the fully-resolved `PdfInvoiceData` — **tested exhaustively**
 - `adapters/pdf/invoice-pdf.ts` draws it — **tested for**: valid PDF, non-trivial size, expected strings present via text extraction, deterministic byte length for a fixed fixture
 
 Unit-testing a PDF's visual layout would be theater; asserting that the *data* handed to the renderer is right, and that the renderer produced a PDF containing those values, is not.
@@ -280,7 +303,7 @@ Late arrivals (a July receipt landing on 3 August) get `period = 2026-07` from t
 
 ### Email body
 
-Generated by `core/packaging/email-body.ts` — pure, snapshot-tested:
+Generated by `engine/packaging/email-body.ts` — pure, snapshot-tested:
 
 ```
 Subject: DILIGAF DOO — dokumentacija za jul 2026

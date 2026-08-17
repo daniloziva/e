@@ -46,8 +46,8 @@ E fixes this by construction (`01-ARCHITECTURE.md` §3):
 
 | Rule | Consequence |
 |---|---|
-| `core/` imports nothing from `adapters/` | every business rule is a pure-function test with no setup |
-| `core/` never calls `fetch`, `Date.now()`, `crypto.randomUUID()`, or reads `process.env` | determinism; time and randomness are injected |
+| `engine/` imports nothing from `adapters/` | every business rule is a pure-function test with no setup |
+| `engine/` never calls `fetch`, `Date.now()`, `crypto.randomUUID()`, or reads `process.env` | determinism; time and randomness are injected |
 | `app/` use cases take their dependencies as arguments | fakes swap in with no mocking framework |
 | `functions/` contain no logic | the untestable layer is 10 lines per file and has nothing to get wrong |
 | config is read once at startup and passed down | no hidden global state between tests |
@@ -76,9 +76,9 @@ Production wires the real ones. Tests pass `InMemoryBlobStore`, `FakeClock`, `Se
 
 ### L1 — Unit (`test/unit/`) — the bulk
 
-Mirrors `core/` 1:1. Pure functions, no I/O, no async unless the function is async. Target: **milliseconds each, thousands of them.**
+Mirrors `engine/` 1:1. Pure functions, no I/O, no async unless the function is async. Target: **milliseconds each, thousands of them.**
 
-Coverage: **95% lines / 90% branches on `core/**`, enforced in CI.** High, and reachable precisely because it's pure code.
+Coverage: **95% lines / 90% branches on `engine/**`, enforced in CI.** High, and reachable precisely because it's pure code.
 
 What lives here — and these are the tests that catch the bugs that would actually hurt:
 
@@ -136,7 +136,7 @@ Each adapter is tested against **recorded real payloads** using undici's built-i
 
 ### L3 — Use case (`test/app/`) — behavior with fakes
 
-The layer that proves features work. Real `core`, in-memory everything else.
+The layer that proves features work. Real `engine`, in-memory everything else.
 
 ```ts
 it('stores a receipt photo, reads it from the QR, and replies with a receipt line', async () => {
@@ -237,8 +237,8 @@ The three highest-consequence model outputs get committed snapshots from real in
 | Blob | **Azurite** (docker) | real API surface — and `If-None-Match`/`If-Match` semantics are exactly what must be verified against a real implementation, not a mock |
 | DB | **none** | D2 — there is no database to test |
 | Mail | **`.eml` fixtures** + a fake IMAP layer | the entire mail path is offline-testable; this was impossible with Power Automate's opaque payloads |
-| Coverage | **v8** provider, thresholds in CI | `core/**` gated; adapters reported, not gated |
-| Lint | eslint + `no-only-tests`, `no-restricted-imports` (blocks `core/` → `adapters/`) | the architecture rule is enforced by the linter, not by memory |
+| Coverage | **v8** provider, thresholds in CI | `engine/**` gated; adapters reported, not gated |
+| Lint | eslint + `no-only-tests`, `no-restricted-imports` (blocks `engine/` → `adapters/`) | the architecture rule is enforced by the linter, not by memory |
 | CI | GitHub Actions: lint → unit → contract (Azurite only) → build | ~2 min; PRs blocked on red |
 
 `npm test` must run **fully offline**. If a test needs the internet, it's in the wrong layer.
@@ -276,7 +276,7 @@ Redact before committing: F2 is your complete spending history. The redaction sc
 A change is done when **all** of these hold:
 
 1. Tests written first, seen failing, now passing
-2. `core/**` coverage thresholds met
+2. `engine/**` coverage thresholds met
 3. Contract tests cover every new external call, including its error cases
 4. Use-case tests cover happy path + duplicate + failure + boundary
 5. No `only`/`skip`, no commented-out tests

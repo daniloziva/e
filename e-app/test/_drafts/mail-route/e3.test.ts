@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { route, mailEventKey } from '../../../src/core/mail/route.js'
-import type { MailEnvelope, MailRule, RouteResult } from '../../../src/core/mail/route.js'
+import { route, mailEventKey } from '../../../src/engine/mail/route.js'
+import type { MailEnvelope, MailRule, RouteResult } from '../../../src/engine/mail/route.js'
 
 /**
  * Email routing rules — engineer #3.
  *
- * Contract: src/core/mail/route.ts
+ * Contract: src/engine/mail/route.ts
  * Spec:     03-DILIGAF.md §1 "Routing table", 04-PERSONAL.md §2, 05-SMOQUA.md §3d.
  *
  * The rules table is DATA, so these tests own their tables. What is under test is

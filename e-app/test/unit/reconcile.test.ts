@@ -27,7 +27,7 @@ import {
   reconcile,
   totalsFromTransactions,
   type StatementTotals,
-} from '../../src/core/statements/reconcile.js'
+} from '../../src/engine/statements/reconcile.js'
 
 /** Positional builder so the arithmetic under test stays readable at the call site. */
 function totals(

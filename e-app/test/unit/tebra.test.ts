@@ -9,7 +9,7 @@ import {
   type AggregateRow,
   type DocumentFilter,
   type TransactionFilter,
-} from '../../src/core/tebra/aggregate.js'
+} from '../../src/engine/tebra/aggregate.js'
 import {
   sideEffectOf,
   enforceBookScope,
@@ -19,8 +19,8 @@ import {
   type BudgetState,
   type LoopBudget,
   type ToolCall,
-} from '../../src/core/tebra/guard.js'
-import type { BookCode, Currency, DocumentFacts, Transaction } from '../../src/core/types.js'
+} from '../../src/engine/tebra/guard.js'
+import type { BookCode, Currency, DocumentFacts, Transaction } from '../../src/engine/types.js'
 
 // ---------------------------------------------------------------------------
 // /tebra — aggregation + agent guardrails.
