@@ -55,21 +55,44 @@ freeze auditable rather than aspirational.
 
 ---
 
-## Known-wrong assertions — read before you fight one
+## Known-wrong assertions — APPLIED 2026-08-17
 
-**As of 2026-08-16 the engine is implemented: 2,792 of 2,798 cases pass.** The six that do not are
-all listed below, and none of them is a code defect. Full analysis for each is in `UNFREEZE-LOG.md`.
+**All six were ruled on by Danilo and unfrozen in a single `UNFREEZE:` commit.** Nothing below is
+outstanding; the table is kept because the reasoning is what stops each one being reintroduced.
 
-| Where | What is wrong | Status |
+| Where | What was wrong | Applied |
 |---|---|---|
-| `reconcile.test.ts:337` | difference 240 vs tolerance 1000 asserted unbalanced; `1240` is the spec's *razlika* pasted into the closing-balance column | **green, but only via an invented `MAX_TOLERANCE = 100`** — CANDIDATE-013 |
-| `invoicing.test.ts:891` | three rows in one `it.each` are mutually unsatisfiable — two require no VAT, one requires 20% | red — CANDIDATE-014 |
-| `packaging.test.ts:986` | the company name must be both absent from the golden body and present in it | red — CANDIDATE-016A |
-| `packaging.test.ts:1093/1105/1116` | the spec-mandated `Napomena:` line contains a `⚠` these three counters do not exclude | red ×3 — CANDIDATE-016B |
-| `smoke.test.ts:6` | asserts `suggestNextNumber` is *still a stub*; expired the moment it was implemented | red — expired scaffolding |
+| `reconcile.test.ts:337` | difference 240 vs tolerance 1000 asserted unbalanced; `1240` is the spec's *razlika* pasted into the closing-balance column | `1240 → 2240`. **`MAX_TOLERANCE` must now be deleted from `reconcile.ts`** — if a tolerance ceiling ever reappears there it is a regression, not a fix |
+| `invoicing.test.ts:891` | three rows in one `it.each` were mutually unsatisfiable — two require no VAT, one requires 20% | `14071.12 → 11725.93` (the ×1.2 basis came from the preceding test) |
+| `packaging.test.ts:986` | the company name had to be both absent from the golden body and present in it | Danilo's ruling: **both Subject and body**. Both goldens now carry it. `03-DILIGAF.md` §5's verbatim sample still omits it and needs the matching line; the Serbian wording is provisional |
+| `packaging.test.ts:1093/1105/1116` | the spec-mandated `Napomena:` line contains a `⚠` these three counters did not exclude | restored `&& l.startsWith('  ')`, the guard drafts e3 and e2 both had and the merge dropped |
+| `smoke.test.ts:6` | asserted `suggestNextNumber` was *still a stub*; expired the moment it was implemented | file deleted. The "passingCount must stay at 1" invariant is spent — 2,810 other cases prove the harness runs |
+| `extract-validate.test.ts:248-249` | `'000000000'` and `'111111111'` kept as valid PIBs | **CANDIDATE-002 applied** — see below |
 
-**One `UNFREEZE:` pass clears all seven** (six red plus the `reconcile` workaround) and deletes the
-one unexplained constant in the codebase. Until then: do not "fix" any of them in `src/`.
+**CANDIDATE-002's blast radius was five times what the register predicted.** The entry said "two
+assertions at `:248-249`, plus any fixture using a made-up PIB" without enumerating. Scanning every
+PIB-shaped literal in the suite found **eleven affected sites**, including `vendorPib: '123456789'` in
+`extract-validate.test.ts`'s **default `facts()` fixture** — which would have silently rejected the
+vendor PIB in most of a 182-case file once the checksum landed in `src/`.
+
+The algorithm was verified against three real, independently sourced PIBs before any test was touched:
+`104052135` (NIS) and `111886391` (DILIGAF) from the F4 receipt, and `100002887` — used 27× in
+`extract-ladder.test.ts` and confirmed by the NBS account registry as **TELEKOM SRBIJA A.D.** All three
+validate. `100002593`, the other PIB-shaped fixture, returns **zero rows** from that registry, so it is
+invented and was corrected rather than treated as a counterexample. **No real PIB fails this checksum.**
+
+Corrected fixtures keep their original prefix with only the check digit fixed, so each case's intent
+survives: `123456789→123456788`, `100205514→100205516`, `000123456→000123452`, `100002593→100002590`.
+
+**Left alone deliberately:** `extract-ladder.test.ts:580` — `vendorKey('OMV Srbija', '000000000')`, titled
+*"accepts a PIB of exactly nine digits, including all zeros"*. It tests `vendorKey`, not `validateFacts`,
+and sits inside the provisional carve-out below. C-002 scopes the checksum to `validate.ts`. If a
+checksum is ever added to `vendorKey` or to invoice-party PIBs, that test plus `invoicing.test.ts:44`
+and `:52` become the next blast radius.
+
+**Six cases are now correctly RED**, awaiting the `src/` half in a separate commit: three PIB rejections
+(the checksum is not in `validate.ts` yet) and three `buildEmailBody` cases (the company name is not
+emitted yet). That is TDD RED, not regression — before this commit the same six were *unsatisfiable*.
 
 ---
 
@@ -81,9 +104,8 @@ while they stand, so each is an unfreeze decision rather than a bug. Full analys
 
 | Where | What it pins | What is blocked |
 |---|---|---|
-| `extract-validate.test.ts:248-249` | `'000000000'` and `'111111111'` are kept as valid PIBs | **CANDIDATE-002** — an ISO 7064 MOD 11,10 check digit. Both real PIBs in this project validate; both pinned fakes are numbers that cannot be issued, and a one-digit OCR misread is exactly what a checksum catches. PIB is *identity* for vendor profiles |
-| `nlu.test.ts:823-828` | model-sourced money at `confidence: 'high'` commits without a tap | **CANDIDATE-005** — clamping a model's self-reported confidence, or requiring a tap when *money* is model-sourced. Both guards are forbidden here as frozen |
-| `nlu.test.ts:905-922` | the confirm threshold compares raw amounts, currency-blind, in both directions | **CANDIDATE-006** — converting before comparing. 400 EUR ≈ 46,800 RSD currently commits under a 500 RSD threshold, a ~117× hole in the only gate on the WhatsApp path |
+| `nlu.test.ts:823-828` | model-sourced money at `confidence: 'high'` commits without a tap | **CANDIDATE-005** — clamping a model's self-reported confidence, or requiring a tap when *money* is model-sourced. Both guards are forbidden here as frozen. Deferred: the cost does not grow with time |
+| `nlu.test.ts:905-922` | the confirm threshold compares raw amounts, currency-blind, in both directions | **CANDIDATE-006** — 400 EUR ≈ 46,800 RSD currently commits under a 500 RSD threshold, a ~117× hole in the only gate on the WhatsApp path. **Superseded by the LCY work**, which fixes it generally rather than per-currency. ⚠ **This unfreeze must be pre-authorized before an isolated engineer starts LCY** — it makes a currently-*passing* assertion fail, and a subagent cannot self-authorize that |
 | `tebra.test.ts` — *"sums the original amount when currency is part of the group key"* | `groupBy: ['currency']` over mixed currencies must **succeed** | **Result-level currency checking.** The per-bucket check is correct and is what lets that query work; but the grand `total` is never currency-checked on *any* axis, so `['category']` and `['vendor']` pool too. Verified by attempting the fix: a result-level refusal turns this assertion red. `AggregateResult` is pinned to four fields, so a caveat field also needs an unfreeze. **The freeze-compatible route is render-layer suppression at M4.5** |
 
 **Attempted and reverted, 2026-08-16:** the result-level currency check in `aggregate.ts` was written,
@@ -131,9 +153,19 @@ the derived-filename orphaning problem entirely and may retire `vendorKey` altog
 (APR open data or the NBS PIB lookup), which is what makes normalization uniform by
 construction and retires the folding question these tests currently pin.
 
-**Blocked on spike S-PIB.** Until that spike runs, rewriting these tests would mean writing
-assertions against an endpoint whose response shape is unconfirmed — the exact failure this
-project has avoided throughout.
+**S-PIB is now substantially answered (2026-08-17) — this carve-out is close to retirable.** The
+blocker was that the response shape was unconfirmed. It is confirmed: the NBS public account
+registry needs no authentication, returns a stable `data-title`-keyed table, and was verified live
+against DILIGAF, Telekom Srbija, and three multi-result name searches. Full findings —
+including that **matični broj is identity and names are aliases** (one MB returns three different
+name strings), that the registry's own diacritics are inconsistent, and that a `PR`'s registered
+name embeds owner, activity and city — are in `07-ROADMAP.md` M1 under **S-PIB outcome**.
+
+What is *not* yet settled, and what still holds this carve-out open: the paid SOAP API publishes no
+registration procedure and types its response as `<s:any />`, so if the eventual canonical source is
+the API rather than the scrape, the field names could still differ. Rewrite these tests against the
+scrape's confirmed shape once the adapter exists — not before, because the mapper's own tests
+(from the saved `BORBA` and `SECTOR` fixtures) are what will pin the contract.
 
 **Everything else in that file is frozen**, including the ladder short-circuit tests, the
 `applyProfile` flat-key and prototype-pollution tests, and the rest of
