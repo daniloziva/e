@@ -31,6 +31,12 @@ export default defineConfig({
         'src/engine/mail/parse-eml.ts', //                F5 / F9
         'src/engine/whatsapp/parse-inbound.ts', //        F7
       ],
+      // Without this the gate is dead whenever it matters most. vitest defaults
+      // `reportOnFailure` to FALSE, so a red suite emits no report and evaluates
+      // no threshold — coverage silently stops being checked at exactly the moment
+      // the code is broken. Measured 2026-08-17: this was one of the two reasons
+      // the thresholds below had never once been executed since M0 declared them.
+      reportOnFailure: true,
       thresholds: { lines: 95, branches: 90, functions: 95, statements: 95 },
     },
   },

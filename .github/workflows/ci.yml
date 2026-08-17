@@ -49,20 +49,21 @@ jobs:
         run: pnpm typecheck
 
       # ─────────────────────────────────────────────────────────────────────
-      # NOT blocking, and this is the one deliberate concession in the gate.
+      # BLOCKING as of 2026-08-17.
       #
-      # The unit suite is frozen at TDD RED: 2,771 cases fail on `not
-      # implemented` by design (TEST-FREEZE.md). A blocking test step would be
-      # red on every commit until the last module lands, which trains everyone
-      # to ignore CI — worse than not running it.
+      # It was not, and the reason was good: the suite was frozen at TDD RED —
+      # 2,771 cases failing on `not implemented` by design (TEST-FREEZE.md). A
+      # blocking step would have been red on every commit until the last module
+      # landed, which trains everyone to ignore CI. That is worse than no CI.
       #
-      # It still runs, and the pass/fail counts land in the job summary so a
-      # regression is visible. FLIP `continue-on-error` TO FALSE once
-      # implementation is complete and the suite is green.
+      # That condition is gone. The engine is implemented, the six known-wrong
+      # assertions were unfrozen and satisfied, and the suite is 3,132/3,132.
+      # A non-blocking gate now reports failures nobody is obliged to fix, which
+      # is the same trained indifference by a slower route.
       # ─────────────────────────────────────────────────────────────────────
-      - name: Unit suite (reporting only while the freeze is RED)
+      - name: Unit suite
         id: unit
-        continue-on-error: true
+        continue-on-error: false
         # `shell: bash` is load-bearing, not style. GitHub's default runner shell
         # is `bash -e {0}` with NO pipefail, so the exit status of
         # `pnpm test | tee` is TEE's — always 0. Without this line the step can
@@ -72,23 +73,26 @@ jobs:
         shell: bash
         run: pnpm test --reporter=basic 2>&1 | tee unit.log
 
-      # Also NOT blocking, and for the same reason — most of src/engine is still
-      # stubs, so the 95/90 thresholds cannot pass yet.
+      # BLOCKING as of 2026-08-17, together with the unit step above.
       #
-      # It runs anyway because until it does, those thresholds are DECORATIVE:
-      # they are declared in vitest.config.ts and were never once executed, since
-      # `pnpm test` does not compute coverage. A gate nobody runs is not a gate.
-      # FLIP `continue-on-error` TO FALSE together with the unit step above.
-      - name: Coverage (reporting only while the freeze is RED)
+      # These thresholds were DECORATIVE from M0 until now — declared in
+      # vitest.config.ts and never once executed. Two independent reasons, both
+      # since fixed: `pnpm test` does not compute coverage (so the numbers were
+      # never produced in CI), and vitest's `coverage.reportOnFailure` defaults to
+      # FALSE (so a red suite emitted no report and evaluated no threshold —
+      # coverage stopped being checked at exactly the moment the code was broken).
+      # `reportOnFailure: true` is now set explicitly in vitest.config.ts.
+      #
+      # Measured at the flip: branches 92.36% against a 90% threshold, 44 branches
+      # of margin. The flip was held until there was margin, because a gate that
+      # blocks on the first routine commit gets its threshold lowered, and a
+      # threshold lowered to fit is worse than no threshold at all.
+      #
+      # DO NOT LOWER THE THRESHOLD TO MAKE A BUILD PASS. Write the test.
+      - name: Coverage
         id: cov
-        continue-on-error: true
+        continue-on-error: false
         # Same pipefail reasoning as the unit step above.
-        #
-        # Also note: vitest's `coverage.reportOnFailure` defaults to FALSE, so
-        # while any test is red this emits no report and evaluates no threshold.
-        # Set it to true in vitest.config.ts before flipping the flags, or the
-        # gate stays decorative. Measured 2026-08-16: branches 89.04% against a
-        # 90% threshold — expect the first honest run to be red.
         shell: bash
         run: pnpm coverage 2>&1 | tail -40 | tee coverage.log
 
@@ -102,7 +106,7 @@ jobs:
             grep -E '^ *(Test Files|Tests) ' unit.log || echo 'no summary line found'
             echo '```'
             echo ''
-            echo "Outcome: \`${{ steps.unit.outcome }}\` — RED is expected while TEST-FREEZE.md is in force."
+            echo "Outcome: \`${{ steps.unit.outcome }}\` — this step is BLOCKING as of 2026-08-17. A failure is a regression, not the freeze baseline."
             echo ''
             echo "### Coverage (src/engine/**)"
             echo ''
@@ -110,7 +114,7 @@ jobs:
             grep -E '^(All files|% ?Coverage|ERROR: Coverage)' coverage.log || tail -5 coverage.log || echo 'no coverage output'
             echo '```'
             echo ''
-            echo "Outcome: \`${{ steps.cov.outcome }}\` — thresholds are 95% lines / 90% branches; failing is expected until the last module lands."
+            echo "Outcome: \`${{ steps.cov.outcome }}\` — BLOCKING as of 2026-08-17. Thresholds 95% lines / 90% branches. Fix by writing the test, never by lowering the threshold."
           } >> "$GITHUB_STEP_SUMMARY"
 
       # Blocking. Proves src/ still emits.

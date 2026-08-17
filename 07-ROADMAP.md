@@ -54,16 +54,32 @@ actually been met**, and these are the reasons.
   `pipefail`**, so the step's exit code was `tee`'s and `steps.unit.outcome` was hard-wired to
   `success`. **Fixed 2026-08-16** by adding `shell: bash` to both piped steps. Keep the comment
   explaining why, or someone will remove it as noise.
-- **U3 — the coverage gate is dead twice over.** Thresholds have been declared since M0 and have
-  **never once evaluated anything**: vitest's `reportOnFailure` defaults to *false*, so while any test
-  is red no report is produced and no threshold is checked. Sequencing matters —
-  (1) land the unfreeze so the suite is green, (2) set `reportOnFailure: true`, (3) close the branch
-  gap, (4) *then* flip both `continue-on-error` flags, (5) prove it fails on a deliberately uncovered
-  line, which is M0's own acceptance criterion and has never been done.
-  Measured 2026-08-17: **branches 89.04%** against a 90% threshold — `packaging` 83.4%, `ledger` 85.8%,
-  `mail` 87.1%. **Do not lower the threshold to 89 to make it pass**; that is the one move that makes
-  the number permanently meaningless. Note C-002 *adds* branches, so the target moves before you reach
-  it — this is the one item in the batch with unbounded size and it should not hold the rest up.
+- **U3 — the coverage gate is LIVE as of 2026-08-17.** ✅ All five steps done. It had been dead twice
+  over since M0: `pnpm test` does not compute coverage, and vitest's `reportOnFailure` defaults to
+  *false* so a red suite emitted no report and evaluated no threshold — coverage stopped being checked
+  at exactly the moment the code was broken. `reportOnFailure: true` is now explicit in
+  `vitest.config.ts`, and both `continue-on-error` flags in `ci.yml` are `false`.
+
+  Journey: **89.04% → 92.36% branches**, 1742/1886, **44 branches of margin**. The flip was held until
+  there was margin, because a gate that blocks on the first routine commit gets its threshold lowered,
+  and a threshold lowered to fit is worse than none. **Do not lower it. Write the test.**
+
+  **M0's acceptance criterion — "the coverage gate demonstrably fails on a deliberately uncovered
+  line" — was met for the first time on 2026-08-17,** and the exercise taught something worth keeping:
+
+  | Deliberate breakage | branches | exit |
+  |---|---|---|
+  | 3 uncovered branches in a dead exported function | 92.36% (unchanged) | 0 |
+  | 60 uncovered branches in a dead exported function | 92.36% (unchanged) | 0 |
+  | 60 untaken branches inside `round2` (a hot function) | **89.51%** | **1** + `ERROR: Coverage for branches (89.51%) does not meet global threshold (90%)` |
+
+  **v8 only enumerates branches inside functions that actually execute.** Dead code therefore cannot
+  breach the *branch* threshold at all — it moves statements, lines and functions only. A whole
+  unreachable module could be added and the branch number would not budge. That is a real limit of
+  this gate: it measures the quality of coverage over *live* code, and says nothing about dead code.
+  The lines/statements/functions thresholds are what catch that, which is a reason not to relax them.
+
+  Verified restored byte-identical after each proof; `git diff` on `src/` clean.
 - **U8 — the declared test infrastructure does not exist.** `test/fakes/` is empty and the Azurite
   `putIfAbsent` / `casPut` contract tests have never run. M1 steps 13, 16 and 20 depend on both.
 - **Mutation testing is the gap that matters most, because it is about what we don't know.** A sweep of
@@ -76,7 +92,12 @@ actually been met**, and these are the reasons.
   were never enumerated. When this runs, split it across four agents — the first attempt was one long
   job and lost its work to a network error.
 
-**Done when:** `npm test` passes offline with no Postgres anywhere, CI is green, `/api/health` responds in Azure, and the coverage gate demonstrably fails on a deliberately uncovered line.
+**Done when:**
+
+- [x] `pnpm test` passes offline with no Postgres anywhere — 3,132/3,132, no network
+- [x] CI is green, and **blocking** — both `continue-on-error` flags `false`, 2026-08-17
+- [x] **the coverage gate demonstrably fails on a deliberately uncovered line** — DONE 2026-08-17, exit 1 at 89.51% branches. Closed. See U3 above for the method and the v8 limit it exposed.
+- [ ] `/api/health` responds in Azure — **the one remaining item.** Blocked on `src/functions/` and a deployment, neither of which exists.
 
 ---
 

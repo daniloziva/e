@@ -68,7 +68,7 @@ Reporting rolls up on any axis, or any pair: spend by category, by project, or c
 ```
 MATERIALS 300e
 MARKETING 12000 fb ads avgust
-PACKAGING 4500
+SHIPPING 4500
 MATERIJAAL PAMUK 200E Projekat 1        ← typo, item, amount, project — all in one
 ```
 
@@ -107,7 +107,7 @@ SMOQUA is where the **90-layout problem** actually lives: the shop buys abroad, 
 ```
 YOU  [PDF invoice, no caption]
 E    ✓ SMOQUA · sačuvano · Kartonaža doo · 48.900,00 RSD
-     Za šta je ovo?  [MATERIALS] [PACKAGING] [Ostalo…]
+     Za šta je ovo?  [MATERIALS] [SHIPPING] [Ostalo…]
 ```
 
 The document is stored first and the question comes after. You can ignore the question and answer it during `/misc` later — the paper is never held hostage to a classification.
@@ -139,9 +139,9 @@ Storing the rate *as of the document date* rather than converting at report time
 YOU  (SMOQUA phone)  /status
 E    SMOQUA · avgust 2026
      MATERIALS    620,00 € + 84.000 RSD   ≈ 156.600,00
-     PACKAGING     48.900,00
+     SHIPPING      48.900,00
      MARKETING     18.000,00
-     LOGISTICS     12.400,00
+     SERVICES      12.400,00
      ─────────────────────────
      Ukupno      ≈ 235.900,00 RSD
      4 dokumenta · 3 bez računa
