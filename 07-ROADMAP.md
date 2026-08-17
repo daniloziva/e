@@ -573,11 +573,13 @@ Small, because M1 did the work.
 **Hardening — moved here from `UNFREEZE-LOG.md`, 2026-08-17.**
 
 - **Q10 is CLOSED (Danilo, 2026-08-17).** The category axis is
-  **`MARKETING`, `SHIPPING`, `MISC`, `MATERIALS`, `SEWING`** — recorded in `05-SMOQUA.md` §2, which
+  **`MARKETING`, `SHIPPING`, `MISC`, `MATERIALS`, `SERVICES`** — recorded in `05-SMOQUA.md` §2, which
   is canonical. `OTHER` is gone and `MISC` is the catch-all, which **moots hazard H1**. The old
-  placeholder alias `MAT` was deleted: it is H3's worked example. Still open there, both data not
-  code: `MISC` at exactly four characters has the tightest fuzzy budget (Serbian `miš` → `MIS` is one
-  insertion away), and `SHIPPING` / `SEWING` / `MISC` have no Serbian aliases yet.
+  placeholder alias `MAT` was deleted: it is H3's worked example. Three things still open there, all
+  data not code: `MISC` at exactly four characters has the tightest fuzzy budget (Serbian `miš` →
+  `MIS` is one insertion away); four of the five values have no Serbian aliases yet; and **`PACKAGING`
+  is no longer a category but still appears in `05-SMOQUA.md` §3's worked examples and button rows**,
+  so those examples now reference a value the vocabulary does not contain.
 - **Aliases must be at least four characters** (Danilo, 2026-08-17). This is a *data*
   constraint, not a code one: with a three-letter alias like `MAT` for `MATERIALS`, the strings `MAJ`,
   `MART`, `RAT`, `ROB`, `RIBA` and `SOBA` all resolve to it at edit distance 1. The length-relative

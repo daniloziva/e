@@ -45,9 +45,10 @@ Two entries still want a look before this ships, both data-tuning rather than co
 - **`ROBA` was dropped from the MATERIALS aliases** along with `MAT`. At four characters its budget
   is 1, which still puts `SOBA` (room) one substitution away. Re-add it if you want it, knowing that.
 
-`SHIPPING`, `SEWING` and `MISC` have no aliases yet. Serbian ones are worth adding (a message is
-more likely to say `ŠIVENJE` than `SEWING`) but they are yours to choose, subject to the four-character
-rule — inventing them here would be guessing at your vocabulary.
+`MARKETING`, `SHIPPING`, `MISC` and `SERVICES` have no aliases yet. Serbian ones are worth adding —
+a message is more likely to say `USLUGE` than `SERVICES`, or `POŠTA` / `DOSTAVA` than `SHIPPING` —
+but they are yours to choose, subject to the four-character rule. Inventing them here would be
+guessing at your vocabulary, and a wrong alias becomes a magnet rather than a convenience.
 
 Stored as `dimensions: { category: "MATERIALS", project: "Projekat 1" }` on both documents and transactions.
 
