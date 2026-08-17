@@ -186,6 +186,24 @@ function subjectMatches(rule: UsableRule, subject: string): boolean {
       return subject.includes(rule.subjectPattern)
     case 'exact':
       return subject === rule.subjectPattern
+    default: {
+      // This function was declared `: boolean` while a switch with no `default`
+      // returned `undefined` for an unrecognised matchType — a type lie held up
+      // entirely by call ordering, since `toUsableRule` validates matchType against
+      // MATCH_TYPE_SET before any rule reaches here. The return type is now honest.
+      //
+      // The `never` assignment is the point of the branch: adding a member to
+      // MailRule['matchType'] without a case above becomes a COMPILE error here
+      // rather than a rule that silently never matches. Unreachable at runtime —
+      // `subjectMatches` is not exported and every caller passes a validated rule.
+      //
+      // `false` rather than a throw: an unmatched message routes to E/Failed, which
+      // is visible, whereas a throw would break `route()`'s contract of never
+      // throwing and could take out a whole poll cycle over one bad rule.
+      const unhandled: never = rule.matchType
+      void unhandled
+      return false
+    }
   }
 }
 

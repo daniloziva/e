@@ -237,7 +237,7 @@ function currenciesOf(prepared: readonly Prepared[]): Set<string> {
   const currencies = new Set<string>()
   prepared.forEach((item, index) => {
     if (item.row.amount === null) return
-    currencies.add(item.row.currency ?? ` unread:${index}`)
+    currencies.add(item.row.currency ?? `\u0000unread:${index}`)
   })
   return currencies
 }

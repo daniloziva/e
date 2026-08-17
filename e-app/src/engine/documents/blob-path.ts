@@ -116,7 +116,11 @@ const EXTENSION_SHAPE = /^[a-z0-9]+$/
  * The one function that decides where the bytes physically land was the one that
  * did not check.
  */
-function requireShape(field: string, value: string, shape: RegExp): string {
+// `value` is `unknown`, not `string`, and deliberately so. These fields arrive from
+// JSON and a MIME header; the declared types prove nothing about them, and typing the
+// parameter as `string` made the `typeof` check below look like dead code to both a
+// reader and to TypeScript. It is not dead — it is the runtime boundary.
+function requireShape(field: string, value: unknown, shape: RegExp): string {
   if (typeof value !== 'string' || !shape.test(value)) {
     throw new Error(
       `blobPathFor: ${field} is not a usable path segment (${JSON.stringify(value)}) — refusing to write a document where no listing will find it`,
@@ -131,14 +135,24 @@ export function blobPathFor(input: BlobPathInput): string {
   requireShape('blobPrefix', input.blobPrefix, PREFIX_SHAPE)
   requireShape('category', input.category, CATEGORY_SHAPE)
   requireShape('sha256', input.sha256, SHA_SHAPE)
-  requireShape('extension', input.extension.toLowerCase(), EXTENSION_SHAPE)
+  // EXTENSION_SHAPE is lowercase-only, so the value must be folded before the shape
+  // is applied — `PDF` is a legitimate input. But the fold may only happen once the
+  // value is known to be a string: `input.extension.toLowerCase()` evaluated first
+  // throws a bare `TypeError: ... is not a function` instead of the diagnostic above,
+  // and `extension` is precisely the field this function's docstring names as arriving
+  // from an untrusted MIME `filename=` parameter. Guarding the deref is the whole point.
+  const extension = requireShape(
+    'extension',
+    typeof input.extension === 'string' ? input.extension.toLowerCase() : input.extension,
+    EXTENSION_SHAPE,
+  )
   if (input.docDate !== null) requireShape('docDate', input.docDate, ISO_DAY_SHAPE)
 
   const year = input.period.slice(0, 4)
   const month = input.period.slice(5, 7)
   const fileDate = input.docDate ?? `${input.period}-01`
   const sha8 = input.sha256.slice(0, 8).toLowerCase()
-  const extension = input.extension.toLowerCase()
+  // `extension` is the validated, folded value from above — not a second `.toLowerCase()`.
   const filename = `${fileDate}--${slugify(input.slugSource)}--${sha8}.${extension}`
 
   return `${input.blobPrefix}/${year}/${month}/${input.category}/${filename}`
