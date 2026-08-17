@@ -126,10 +126,13 @@ SOAP `AuthenticationHeader` of `UserName` / `Password` / **`LicenceID` (a requir
 `GetCompanyAccountByNationalIdentificationNumber` is the right operation. But: **no registration
 procedure, contact address, fee schedule or test environment is published anywhere on the
 documentation site** — it assumes you already hold a licence. And the WSDL types the response as
-`<s:any />`, so **reading the WSDL does not reveal the field shapes**. Registration is worth
-requesting in parallel (the Exchange Rate Service shares the same auth model, so one request
-unlocks both), but nothing should wait on it. Note also `nationalIdentificationNumber` is typed
-`long` and more likely keys on **matični broj** than PIB — confirm before designing around it.
+`<s:any />`, so **reading the WSDL does not reveal the field shapes**. **Danilo's ruling, 2026-08-17: do not
+pursue the licensed API until the PoC is validated.** The scrape is sufficient for now, the
+registration lead time and cost are both unknown, and paying to de-risk a system that has not yet
+read a receipt in the wild is the wrong order. Revisit after M1's "done when" is met. Note for
+whenever that happens: `nationalIdentificationNumber` is typed `long` and more likely keys on
+**matični broj** than PIB — confirm before designing around it. The Exchange Rate Service shares the
+same auth model, so one registration would unlock both.
 
 *The public registry needs no authentication.* `webappcenter.nbs.rs/PnWebApp/CompanyAccount/CompanyAccountResident`
 answers a plain query string — no session cookie, no CSRF token, no JavaScript, no captcha —
@@ -521,6 +524,19 @@ Largest and least predictable — it depends entirely on your statement's real l
 - **CANDIDATE-012 — a mixed basket is filed whole and no split is ever offered.** A single receipt
   covering two categories is booked to one. `split.ts` exists; nothing offers it. Pinned at `:391-401`
   with the model's win mandated — CANDIDATE-004's anatomy again. Unfreeze required.
+- **CANDIDATE-009 — re-adding an already-split transaction doubles the money.** `add(s1,-100)` →
+  `split(s1 → -60/-40)` → `add(s1,-100)` folds to **three rows totalling -200** for a -100 charge.
+  `split` removes the parent and inserts the parts; a later `add` for the same id resurrects the
+  parent alongside them. Both behaviours are individually pinned and correct; nothing in the frozen
+  suite composes them. Reachability is low by accident of design — `invert(split)` returns `null` so
+  undo cannot produce it, and split parts inherit the parent's `dedupeKey` so a re-imported statement
+  line never emits a second `add` — but a manual re-ingest or repair script doubles the charge with
+  no error and no review flag.
+  **Fix: option (a) — an `add` on an id that currently exists only as split parts removes the parts
+  first.** Additive, no unfreeze, and it matches "add is an upsert". Rejected alternative: declaring
+  the invariant ingest-side only, which leaves `fold` corruptible by a bad writer — inconsistent with
+  the module's own header promise that *"one bad blob may not take out the month"*, now backed by 49
+  survivability tests in `fold-guards.test.ts`.
 - **A malformed statement announces `razlika 0,00`.** The failure message prints a difference of zero
   when parsing failed outright, which reads as "reconciled" — the most misleading possible output on
   the path whose whole job is to refuse to balance.
@@ -556,7 +572,13 @@ Small, because M1 did the work.
 
 **Hardening — moved here from `UNFREEZE-LOG.md`, 2026-08-17.**
 
-- **Q10 — dimension aliases must be at least four characters** (Danilo, 2026-08-17). This is a *data*
+- **Q10 is CLOSED (Danilo, 2026-08-17).** The category axis is
+  **`MARKETING`, `SHIPPING`, `MISC`, `MATERIALS`, `SEWING`** — recorded in `05-SMOQUA.md` §2, which
+  is canonical. `OTHER` is gone and `MISC` is the catch-all, which **moots hazard H1**. The old
+  placeholder alias `MAT` was deleted: it is H3's worked example. Still open there, both data not
+  code: `MISC` at exactly four characters has the tightest fuzzy budget (Serbian `miš` → `MIS` is one
+  insertion away), and `SHIPPING` / `SEWING` / `MISC` have no Serbian aliases yet.
+- **Aliases must be at least four characters** (Danilo, 2026-08-17). This is a *data*
   constraint, not a code one: with a three-letter alias like `MAT` for `MATERIALS`, the strings `MAJ`,
   `MART`, `RAT`, `ROB`, `RIBA` and `SOBA` all resolve to it at edit distance 1. The length-relative
   fuzzy budget kills the worse cases (`VODA`, `RATA`, `MAPA`) but **cannot** kill these — nothing short

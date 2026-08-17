@@ -65,6 +65,29 @@ E is one user, ~100 documents and ~500 transactions a month. At that size a rela
 
 **What we give up, plainly:** no SQL console to poke around in, and aggregation happens in TypeScript instead of the query planner. Neither costs anything at one user — and pure-function aggregation over in-memory arrays is markedly easier to unit-test than SQL. If E ever became multi-user this design would need revisiting; that's what 1IA (which keeps Postgres) is for.
 
+### One carve-out: Table Storage for disposable reference data (Danilo, 2026-08-17)
+
+**Exchange rates live in Table Storage, not blob.** `PartitionKey` = currency, `RowKey` = date.
+
+This does not reopen D2. D2 refused a *relational database* — a service, a connection string, RLS
+reasoning, migrations, a Postgres container in CI. Table Storage is a different API surface on the
+**same storage account**: same resource, same managed identity, same credential, no new service to
+provision. The incremental cost is one adapter and one fake.
+
+The deciding argument is that the rate cache is **not the system of record.** A transaction's rate is
+frozen onto it at capture (`rate` + `rateDate` on the ledger event), because a recomputed rate would
+silently move historical reports and change a package already sent to the accountant. That makes the
+cache a disposable lookup accelerator — losing it entirely costs nothing and rebuilds itself.
+
+Blob earns its place in this design through `putIfAbsent` and `casPut`: atomic create-if-absent and
+compare-and-swap. Write-once reference data needs neither. What it does want is cheap point lookups
+and date-range queries, which is precisely Table Storage's shape.
+
+**The boundary, so this stays one carve-out and not a habit:** blob remains THE store for anything
+that is a money fact, a document, or mutable state — the ledger, sidecars, `_state`, `_index`,
+`_queue`. Table Storage is only for data that is *derived, immutable and disposable*. Anything that
+would be missed if it vanished belongs in blob.
+
 ### Layout
 
 One GPv2 account, **hierarchical namespace off**, one private container `e-docs`:

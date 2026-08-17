@@ -203,6 +203,36 @@ Rounding: 2 decimals, half-up, **per invoice not per line** — the total your a
 
 **Presentation matters as much as the arithmetic.** `exempt_export` must not render a `PDV 0,00` line as though the supply were taxed at zero — it renders no VAT line at all and carries an exemption note instead. Those are different documents to a tax inspector, so they're separate code paths with separate snapshot tests.
 
+**The exemption note text (Q18 — Danilo, 2026-08-17):**
+
+```
+VAT not charged – reverse charge
+```
+
+This is **configuration, not code.** `legalNotes: Record<VatMode, string>` is an input to
+`buildInvoiceData`, and `invoicing.test.ts:799` pins that a caller-supplied note passes through
+unchanged — no string is hardcoded anywhere in `src/`, and the frozen tests forbid one.
+`invoice-template.ts:59` states outright that the text and its citation are an accountant's
+determination, so this is the value the operator configures, not a value the engine knows.
+
+Two things left open, deliberately, and to be settled with the accountant:
+
+- **Two framings now exist in the repo.** The test fixture reads
+  `Oslobodjeno PDV-a — mesto prometa u inostranstvu.` (*place of supply abroad*), which is a
+  different legal basis from *reverse charge*. Reverse charge is an EU-VAT mechanism under which
+  the recipient accounts for the tax; the invoice this arose from (`2026007`) is to **Vetatek LLC,
+  a US company**, where the Serbian treatment is more usually framed as the place of supply
+  falling outside Serbia. Both texts are currently in the tree.
+- **No article citation.** Serbian exempt invoices typically cite the relevant article of the
+  Zakon o PDV-u. None is recorded here.
+
+Neither blocks anything: the note is an input, so changing it later is a config edit.
+
+**Already incurred, for the record.** Invoice `2026007` (DILIGAF → Vetatek LLC, 10,000 USD, July
+ERP consultancy) was issued rendering `SUBTOTAL 10000 USD / VAT 0 USD / TOTAL DUE 10000 USD` —
+a zero-rate VAT line with no exemption note, which is exactly what the paragraph above forbids.
+Whether anything is owed on invoices already issued that way is the accountant's call.
+
 **Three things to confirm with your accountant rather than take from me.** I can make the arithmetic and the layout correct, but these are tax determinations:
 
 1. **The exact note text and its legal basis** for international invoices. Services supplied to a foreign taxable person are generally outside the scope of Serbian VAT under the place-of-supply rules — but the wording your invoice should carry, and which article it cites, is worth getting right once and then never thinking about. Give me the string and E prints it verbatim.
@@ -310,7 +340,7 @@ Subject: DILIGAF DOO — dokumentacija za jul 2026
 
 Zdravo,
 
-u prilogu je dokumentacija za jul 2026.
+u prilogu je dokumentacija za DILIGAF DOO, jul 2026.
 
 IZVODI (3)
   2026-07-05  izvod 265-07-01.pdf

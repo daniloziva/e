@@ -19,21 +19,41 @@ Consequence worth knowing: whoever holds that phone can book SMOQUA expenses. Th
 ```jsonc
 "dimensions": [
   { "axis": "category", "type": "closed_set", "required": true,
-    "values": ["MATERIALS","PACKAGING","MARKETING","EQUIPMENT","RENT",
-               "UTILITIES","LOGISTICS","FEES","SERVICES","OTHER"],
-    "aliases": { "MATERIALS": ["MATERIJAL","MAT","ROBA","SIROVINE"],
-                 "MARKETING": ["REKLAMA","ADS","PROMO"],
-                 "PACKAGING": ["PAKOVANJE","AMBALAZA"] } },
+    "values": ["MARKETING","SHIPPING","MISC","MATERIALS","SERVICES"],
+    "aliases": { "MATERIALS": ["MATERIJAL","SIROVINE"] } },
   { "axis": "project",  "type": "open_text", "required": false },
   { "axis": "cost_center", "type": "closed_set", "required": false, "values": [] }
 ]
 ```
 
+**The five category values are Danilo's, set 2026-08-17.** They replace an earlier placeholder list
+of ten. Two consequences worth knowing:
+
+- **`OTHER` is gone; `MISC` is the catch-all.** That moots hazard **H1** (`OTHE` fuzzy-matching the
+  literal `OTHER` at edit distance 1, against `05-SMOQUA.md`'s own "never a silent `OTHER`" rule) —
+  the magic value it depended on no longer exists.
+- **No alias may be shorter than four characters** (Q10 ruling). The old list's `"MAT"` was removed
+  for exactly this reason: it is hazard **H3**'s worked example, and with a three-character alias
+  `MAJ` (May), `MART` (March), `RAT`, `ROB`, `RIBA` and `SOBA` all resolve to MATERIALS at edit
+  distance 1. The length-relative budget `min(2, ⌊len/3⌋)` cannot save a three-character alias —
+  nothing short of exact-only matching below four characters can. It is a data rule, not a code one.
+
+Two entries still want a look before this ships, both data-tuning rather than code:
+
+- **`MISC` is exactly four characters**, so it gets the tightest budget (distance 1) — and Serbian
+  `miš` folds to `MIS`, one insertion away. Lowest-margin entry in the list.
+- **`ROBA` was dropped from the MATERIALS aliases** along with `MAT`. At four characters its budget
+  is 1, which still puts `SOBA` (room) one substitution away. Re-add it if you want it, knowing that.
+
+`SHIPPING`, `SEWING` and `MISC` have no aliases yet. Serbian ones are worth adding (a message is
+more likely to say `ŠIVENJE` than `SEWING`) but they are yours to choose, subject to the four-character
+rule — inventing them here would be guessing at your vocabulary.
+
 Stored as `dimensions: { category: "MATERIALS", project: "Projekat 1" }` on both documents and transactions.
 
 | Axis type | Behavior |
 |---|---|
-| `closed_set` | fuzzy-matched against values + aliases (edit distance ≤ 2, diacritics stripped) → deterministic, so `MATERIJAAL` resolves without a model. Unknown → buttons, never a silent `OTHER`. |
+| `closed_set` | fuzzy-matched against values + aliases (edit distance ≤ 2, diacritics stripped) → deterministic, so `MATERIJAAL` resolves without a model. Unknown → buttons, never a silent catch-all. |
 | `open_text` | accepts anything, but E remembers what you've used and offers past values as buttons — so `Projekat 1` is a typo-free tap the second time |
 
 **Adding an axis is a config edit, not a migration.** `CAMPAIGN`, `CHANNEL`, `SUPPLIER_BATCH` next year: add a line, no code. That's what "grows with the company" has to mean in practice — and it's the reason this is a declared array rather than three hardcoded columns.
