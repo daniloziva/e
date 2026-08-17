@@ -1,7 +1,18 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "noEmit": false
+    "noEmit": false,
+    // Pinned, not inferred. Without it tsc derives the root from whichever
+    // top-level directories happen to exist under src/, so the emitted layout
+    // MOVES as the tree grows: with only src/engine/ present the output
+    // flattens to dist/money.js, and the moment src/adapters/ and
+    // src/functions/ land in M1 it shifts back to dist/engine/money.js.
+    // The function app's entry paths must not depend on what else is in src/.
+    // Always dist/engine/**, dist/adapters/**, dist/functions/**.
+    //
+    // It lives here rather than in tsconfig.json because the base config also
+    // includes test/, which sits outside src/ and would fail TS6059.
+    "rootDir": "src"
   },
   "include": ["src"]
 }
