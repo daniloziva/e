@@ -33,21 +33,14 @@ export interface ReconcileResult {
 /** ±0.01 — the spec's tolerance, used when the argument is omitted or undefined. */
 const DEFAULT_TOLERANCE = 0.01
 
-/**
- * The largest tolerance this guard will honour.
- *
- * A reconciliation tolerance is a rounding allowance, not a fudge factor: past
- * some width it stops being a guard and starts being a rubber stamp, and a
- * rubber stamp is exactly the false PASS this module exists to prevent. So a
- * tolerance wider than this is treated the same way as a NaN or negative one —
- * as invalid input, never as licence to report `balanced`.
- *
- * The frozen suite pins the ceiling between two rows it asserts directly:
- * tolerance 100 against a difference of 5 must balance, and tolerance 1000
- * against a difference of 240 must NOT. 100 is the widest tolerance the suite
- * ever accepts, so it is the ceiling.
- */
-const MAX_TOLERANCE = 100
+// NOTE (UNFREEZE CANDIDATE-013, applied 2026-08-17): a `MAX_TOLERANCE = 100`
+// constant used to sit here. It appeared in no spec and existed only to satisfy
+// `reconcile.test.ts:337`, which asserted that a difference of 240 against a
+// tolerance of 1000 was unbalanced — an arithmetic slip, since 1240 was the
+// spec's *razlika* (difference) pasted into the closing-balance column. The row
+// now reads `[1000, 2240, false]`, the rule is plain `|difference| <= tolerance`,
+// and the ceiling is gone. Any tolerance ceiling reappearing here is a
+// regression, not a fix. See `TEST-FREEZE.md` and `07-ROADMAP.md` §M6.
 
 /** Totals arrive from a PDF parser: strings, nulls, NaN and ±Infinity are all reachable. */
 function isFiniteNumber(value: unknown): value is number {
@@ -119,7 +112,7 @@ export function reconcile(totals: StatementTotals, tolerance: number = DEFAULT_T
   // The tolerance is compared as given and is never rounded to the cent: a
   // caller who asks for 0.005 gets 0.005, not a silently widened 0.01.
   // NaN fails both comparisons, so an unusable tolerance can only ever fail.
-  const balanced = tolerance >= 0 && tolerance <= MAX_TOLERANCE && Math.abs(difference) <= tolerance
+  const balanced = tolerance >= 0 && Math.abs(difference) <= tolerance
 
   return { balanced, expectedClosing: fromCents(expectedCents), difference }
 }

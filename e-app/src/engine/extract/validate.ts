@@ -18,8 +18,35 @@ export interface ValidationResult {
  *  - any null in {amountTotal, docDate}, or confidence below 'high' -> needs_review
  */
 
-/** Exactly nine ASCII digits. No trimming, no stripping of separators, no checksum. */
+/** Exactly nine ASCII digits. No trimming, no stripping of separators. */
 const PIB_PATTERN = /^[0-9]{9}$/
+
+/**
+ * The ISO 7064 MOD 11,10 check digit a Serbian PIB carries (UNFREEZE CANDIDATE-002).
+ *
+ * Shape alone accepted `000000000` and `111111111` — numbers that cannot have been
+ * issued — and, more importantly, accepted a one-digit OCR misread, which stays nine
+ * digits long and is OCR's characteristic failure. PIB is *identity* for vendor
+ * profiles (`01-ARCHITECTURE.md` §5), so a silent misread creates or contaminates one.
+ *
+ * Verified against three real, independently sourced PIBs before this landed:
+ * 104052135 (NIS) and 111886391 (DILIGAF) from the F4 receipt, and 100002887 —
+ * confirmed by the NBS account registry as TELEKOM SRBIJA A.D. All three validate.
+ * No real PIB is known to fail it. See `TEST-FREEZE.md` for the full blast radius.
+ *
+ * Callers must apply PIB_PATTERN first: this reads exactly nine ASCII digits and
+ * assumes it. `Number(undefined)` is NaN, which would make the comparison false
+ * rather than throw, but a shorter string is a caller error, not an input case.
+ */
+function pibChecksumValid(pib: string): boolean {
+  let p = 10
+  for (let i = 0; i < 8; i += 1) {
+    p = (p + Number(pib[i])) % 10
+    if (p === 0) p = 10
+    p = (p * 2) % 11
+  }
+  return (11 - p) % 10 === Number(pib[8])
+}
 
 /** Exactly YYYY-MM-DD in ASCII digits. Anything else is not a date we will guess at. */
 const ISO_DATE_PATTERN = /^([0-9]{4})-([0-9]{2})-([0-9]{2})$/
@@ -143,11 +170,16 @@ export function validateFacts(
 ): ValidationResult {
   const rejected: string[] = []
 
-  // vendorPib — exactly nine digits, or nothing. Never repaired, never stripped.
+  // vendorPib — nine digits AND a valid ISO 7064 MOD 11,10 check digit, or nothing.
+  // Never repaired, never stripped.
   let vendorPib: string | null = null
   if (facts.vendorPib === null) {
     vendorPib = null
-  } else if (typeof facts.vendorPib === 'string' && PIB_PATTERN.test(facts.vendorPib)) {
+  } else if (
+    typeof facts.vendorPib === 'string' &&
+    PIB_PATTERN.test(facts.vendorPib) &&
+    pibChecksumValid(facts.vendorPib)
+  ) {
     vendorPib = facts.vendorPib
   } else {
     // The typeof guard is load-bearing, not belt-and-braces. These facts come

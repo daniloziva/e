@@ -252,7 +252,16 @@ export function buildEmailBody(input: EmailBodyInput): string {
   const groups: readonly ManifestGroup[] = Array.isArray(manifest.groups) ? manifest.groups : []
   const revised = input.revised === true ? ' (revidirano)' : ''
 
-  const lines: string[] = ['Zdravo,', '', `u prilogu je dokumentacija za ${input.periodLabel}${revised}.`]
+  // The company name is carried in the body as well as the Subject (UNFREEZE
+  // CANDIDATE-016A, Danilo's ruling 2026-08-17): the accountant receives packages
+  // for DILIGAF *and* SMOQUA, and naming it twice is safer than omitting it once.
+  // It comes from `input`, never a literal — `03-DILIGAF.md` §5's sample still
+  // shows the older name-free body and needs the matching line.
+  const lines: string[] = [
+    'Zdravo,',
+    '',
+    `u prilogu je dokumentacija za ${input.companyName}, ${input.periodLabel}${revised}.`,
+  ]
 
   for (const group of groups) lines.push(...sectionFor(group))
 
