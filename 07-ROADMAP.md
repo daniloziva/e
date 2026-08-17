@@ -46,6 +46,36 @@ Nothing user-visible. Exists so that M1 can be written test-first on day one ins
 
 Tests 3 and 4 are the foundation of the no-database design. They come before any feature code because if Azurite's behavior surprises us, the storage model needs to change while nothing depends on it yet. (Test 4 matters less now that there's no invoice counter — D12 — but `_state` updates to rules, customers, and conversation state still ride on it.)
 
+**Hardening — moved here from `UNFREEZE-LOG.md`, 2026-08-17. M0's "Done when" below has never
+actually been met**, and these are the reasons.
+
+- **U2 — the CI gate was theatre, and flipping `continue-on-error` alone would not have fixed it.**
+  The step piped through `tee`, and GitHub Actions' default shell is `bash -e {0}` with **no
+  `pipefail`**, so the step's exit code was `tee`'s and `steps.unit.outcome` was hard-wired to
+  `success`. **Fixed 2026-08-16** by adding `shell: bash` to both piped steps. Keep the comment
+  explaining why, or someone will remove it as noise.
+- **U3 — the coverage gate is dead twice over.** Thresholds have been declared since M0 and have
+  **never once evaluated anything**: vitest's `reportOnFailure` defaults to *false*, so while any test
+  is red no report is produced and no threshold is checked. Sequencing matters —
+  (1) land the unfreeze so the suite is green, (2) set `reportOnFailure: true`, (3) close the branch
+  gap, (4) *then* flip both `continue-on-error` flags, (5) prove it fails on a deliberately uncovered
+  line, which is M0's own acceptance criterion and has never been done.
+  Measured 2026-08-17: **branches 89.04%** against a 90% threshold — `packaging` 83.4%, `ledger` 85.8%,
+  `mail` 87.1%. **Do not lower the threshold to 89 to make it pass**; that is the one move that makes
+  the number permanently meaningless. Note C-002 *adds* branches, so the target moves before you reach
+  it — this is the one item in the batch with unbounded size and it should not hold the rest up.
+- **U8 — the declared test infrastructure does not exist.** `test/fakes/` is empty and the Azurite
+  `putIfAbsent` / `casPut` contract tests have never run. M1 steps 13, 16 and 20 depend on both.
+- **Mutation testing is the gap that matters most, because it is about what we don't know.** A sweep of
+  `invoicing` alone ran 137 mutants against the frozen suite; **25 were detected by nobody** — a number
+  completely invisible from a 193/193 pass count. Two were real and are now closed with new guards in
+  `test/unit/money-guards.test.ts`: a **truncating** `toRsd` was bit-identical to a correct one across
+  **547 cases including all 354 money cases** (every foreign-currency invoice systematically a cent
+  light, forever), and VAT-on-raw-sum was undetectable by a test whose *title* asserts the opposite.
+  **Fifteen of sixteen modules have never been mutation-tested**, and ~22 of the 25 known blind spots
+  were never enumerated. When this runs, split it across four agents — the first attempt was one long
+  job and lost its work to a network error.
+
 **Done when:** `npm test` passes offline with no Postgres anywhere, CI is green, `/api/health` responds in Azure, and the coverage gate demonstrably fails on a deliberately uncovered line.
 
 ---
@@ -87,6 +117,94 @@ needs no structural change; it is a decision about where NOT to spend effort.
 
 Both spike outputs become the first entries in the eval corpus (`06-TDD-STRATEGY.md` §4.5), so the accuracy numbers that justified the design stay measurable later.
 
+**S-PIB outcome (2026-08-17) — the scrape is the path, and it is enough.** `TEST-FREEZE.md`
+names S-PIB as the blocker on the provisional `vendorKey` carve-out, on the grounds that the
+response shape was unconfirmed. It is now confirmed, empirically, against live data.
+
+*The paid SOAP API is not the near-term path.* `CompanyAccountService.asmx` authenticates via a
+SOAP `AuthenticationHeader` of `UserName` / `Password` / **`LicenceID` (a required GUID)**, and
+`GetCompanyAccountByNationalIdentificationNumber` is the right operation. But: **no registration
+procedure, contact address, fee schedule or test environment is published anywhere on the
+documentation site** — it assumes you already hold a licence. And the WSDL types the response as
+`<s:any />`, so **reading the WSDL does not reveal the field shapes**. Registration is worth
+requesting in parallel (the Exchange Rate Service shares the same auth model, so one request
+unlocks both), but nothing should wait on it. Note also `nationalIdentificationNumber` is typed
+`long` and more likely keys on **matični broj** than PIB — confirm before designing around it.
+
+*The public registry needs no authentication.* `webappcenter.nbs.rs/PnWebApp/CompanyAccount/CompanyAccountResident`
+answers a plain query string — no session cookie, no CSRF token, no JavaScript, no captcha —
+and every `<td>` carries a `data-title` attribute, so **select cells by attribute, never by column
+index**. Three exact keys resolve to a single company: `CompanyTaxCode` (PIB),
+`CompanyNationalCode` (MB), `AccountNumber`. `City` AND-combines and is also a contains match.
+A parseable `Укупан број резултата: N` lets you size a result set before fetching rows.
+
+*Verified facts that the parser must be built around:*
+
+| Finding | Evidence |
+|---|---|
+| `CompanyName` is a **contains** match, not a prefix match | `CLOTH` matched `…ODEĆE STUDIO CLOTH BEOGRAD` mid-string |
+| **Diacritics are rejected** as "special characters" — the term must be ASCII-folded | `VRAČAR` returns a validation error, not zero rows |
+| Search terms must be a **single word** | multi-word `CompanyName` returns a validation error |
+| **Rows are accounts, not companies** — dedupe by matični broj | `UDRUZENJE CLOTH AND CLAY` twice under MB `28231628` |
+| One MB returns **wildly different name strings** | MB `17454447` as `BORBA A.D. NOVINSKO…`, `NIP KOMPANIJA BORBA AD`, and `NOVINSKO IZDAVAČKO PREDUZEĆE KOMPANIJA BORBA AD BEOGRAD (STARI GRAD)` |
+| The **registered name is not the receipt name** | brand `STUDIO CLOTH` is registered as `NADA STEVANOVIĆ PR PROIZVODNJA OSTALE ODEĆE STUDIO CLOTH BEOGRAD` |
+| The registry's **own diacritics are inconsistent** — fold *both* sides of every comparison | `BEOGRAD, VRACAR` and `BEOGRAD-VRAČAR` in one result set |
+| **Zero-width characters appear inside `Delatnost`** — strip them when parsing | `knjigo​vodstveni`, `el​ektričnih` |
+| Registry text contains **plain typos** — never require exact equality | `INDIPENDET PROFIT SECTOR OF ACCOUNT` |
+| Identity values are **Latin**; only localized enums follow page language | name/address/city stable; `Status` renders `Uključen` or `Укључен` |
+
+*This confirms D20 empirically: **MB is identity, names are aliases.*** Store all name variants as
+aliases and keep two fields — `legalName` (registry) and `displayName` (what the receipt says),
+because for a `PR` the registry name embeds owner, activity and city and is useless as a label.
+
+*Token selection is the whole game, and rarity cannot be guessed — measure it.* The result count
+comes back on every query, so probe candidate tokens and keep the smallest:
+
+```
+LUKA    → 2,224 rows     unusable
+SECTOR  →    36 rows     resolves to LUKA-SECTOR 6 DOO, MB 21359262
+SEKTOR  →    57 rows     target absent — never auto-transliterate SECTOR→SEKTOR
+```
+
+A 62× spread between two tokens of one company name. Cap the probe: if the smallest count is
+still in the hundreds, do not fetch rows — require `City`, or ask.
+
+*The resolution cascade, cheapest first.* Exact keys → `City` → **subtract the `Mesto` and
+`Delatnost` columns from the name string** (they arrive in their own columns, so noise tokens are
+removed by subtraction rather than guessed) → rank **exact brand match above contains** →
+filter on activity → filter on legal form. Worked example: `BORBA` gives 35 rows → 26 with
+`City=BEOGRAD` → 14 distinct MB → ~4 after brand-exact → **1** on activity, since
+`Računarsko programiranje` appears exactly once in 35 rows.
+
+*Discard `-BOLOVANJE` / `-NAMENSKI` / `-RN BOLOVANJA` rows before dedupe* (Danilo, 2026-08-17) —
+sick-leave and earmarked accounts are never payable. Two guards: if filtering empties an MB, keep
+its rows for identity and store no account number (losing a bonus field beats losing the vendor);
+and do **not** filter `DEVIZNI` (a legitimate FX account, and DILIGAF invoices in USD) or
+`U STEČAJU` (company status inside the legal name, not an account designation). The marker list
+belongs in JSON, same precedent as `_state/rules/personal.json`.
+
+*Terminal state, and it is not a failure.* **≥10 surviving candidates → do not render a menu; ask
+for a PIB or MB** (Danilo, 2026-08-17). The bound is WhatsApp's, not arbitrary: an interactive list
+carries **max 10 rows**, so reserving one for `NOT HERE, I'LL SEND A PIB` leaves **9** candidate
+slots. The tighter constraint is the row `title` limit of **24 characters** — no registry name fits,
+so the menu must render the brand residue from the subtraction step, which is what makes that step
+do double duty. Below three candidates skip the list entirely and use reply buttons (max 3).
+The escape row stays present at **every** tier, including a single candidate.
+
+*Never auto-select on a score.* A wrong pick writes a valid-but-wrong PIB into a vendor profile,
+which the C-002 checksum cannot catch and every later document inherits silently. This is
+`ambiguous-vendor.ts`'s job. The cost of ambiguity is one tap, once, per vendor, forever.
+
+*Scope cut worth stating:* the hard name-only case largely does not need solving. Serbian receipts
+and invoices are required to print the PIB, so the exact-key path covers documents. Name search
+mostly arises from **bank statement descriptors**, and those need categorization rules
+(`ledger/rules.ts`), not legal identity.
+
+*Save as fixtures:* the `BORBA` (35 rows) and `SECTOR` (36 rows) responses verbatim. Between them
+they exercise dedupe, name variance, token-rarity selection, hyphen tokenization, two-sided
+folding, the zero-width characters and the activity discriminator — the mapper tests entirely
+offline, and the fifteen-line adapter is the only fragile part.
+
 **Build:**
 - `whatsapp-webhook` with **HMAC signature verification** and sender allowlist
 - `parseInboundMessage` — text/image/document/button/list (+ explicit unsupported-type reply)
@@ -125,6 +243,41 @@ Both spike outputs become the first entries in the eval corpus (`06-TDD-STRATEGY
 
 **Smoke:** send a fiscal receipt from the register. Check reply latency, blob path, extracted amount, and **which layer read it**. Send the same photo twice (expect zero model calls the second time). Send a photo with no caption. Send a garbage photo. Send a receipt with the QR covered. Type `300 EVRA za gorivo` and check the interpretation.
 
+**Hardening — moved here from `UNFREEZE-LOG.md`, 2026-08-17.** These were found during the engine
+build but cannot fire until this milestone's code exists, so they are acceptance criteria here
+rather than register entries. Each needs an unfreeze only where noted.
+
+- **CANDIDATE-004 — a deterministic refusal is indistinguishable from an absence.** The ladder
+  reports "no answer" identically whether a rung declined to guess or simply had nothing. The
+  ambiguity needs its own channel so `[Ispravi]` can say *why*. Unfreeze required.
+- **CANDIDATE-008 — the vendor-profile learning loop cannot learn.** `learnFromExtraction` has no
+  path that writes what a successful extraction taught. Layer 2 is inert until it does.
+- **CANDIDATE-007 — export the declared-value validator.** `isDeclaredValue` is needed by the
+  categorize path and is currently unreachable.
+- **CANDIDATE-003 — VAT plausibility, reclassified.** The original proposal (flag an implausible
+  *effective rate* on the invoice total) was measured and **does not work**: Serbia has 20% standard
+  and 10% reduced with food reduced, so any mixed basket blends to a rate that is neither, and an
+  exact-rate check flags most supermarket receipts on day one. The version that works is a
+  **line-level** check (Danilo, 2026-08-17): allowed set `{0, 10, 20}` — 0% because exempt lines are
+  legal — gated on **`vendorPib !== null`** so foreign suppliers at 19%/22% exempt themselves, and
+  tested by **candidate rate** (`vat === round2(net × r)` for some `r`) rather than by computing an
+  implied percentage, which is pure noise at small line amounts. The label→rate table comes from F4.
+  *The guard this replaces is real:* `vat <= total` catches overshoot and leaves understatement
+  entirely unguarded, and understating input VAT costs money while triggering no audit letter.
+- **Seller-vs-buyer PIB.** The F4 receipt carries *two* PIBs (NIS as seller, DILIGAF as buyer).
+  Extraction must not capture the buyer's as the vendor's.
+- **M0's declared test infrastructure does not exist** (U8). `test/fakes/` is empty and the Azurite
+  `putIfAbsent` / `casPut` contract tests have never run — yet steps 13, 16 and 20 above depend on
+  them. Build the fakes before the use-case tests, not alongside.
+- **F7 is now available** (2026-08-17) — real `image` and `document` webhook bodies are in hand, so
+  step 1 is unblocked. `image` carries no `filename`; `document` does, and it is attacker-controlled
+  text that reaches a blob path (`blob-path.ts`'s shape guard already covers it).
+- **Media URLs expire in ~5 minutes.** Measured from the F7 bodies: `ext` minus `timestamp` is 301s
+  and 302s. Ruling (Danilo, 2026-08-17): take the cheap path and use the webhook `url`; the Graph
+  `id` fallback is **v1.1**. One guard now, because it is nearly free — **on a download failure,
+  queue the message into `_queue/review/` with the `wamid` preserved** so a lost photo is visible
+  and re-sendable instead of vanishing. The risk is not average latency, it is the retry path.
+
 **Done when:** you have used it on a real receipt in the wild and the reply arrived before you put your phone away. **Then stop and judge the bet** — this is the decision point the whole project exists for.
 
 ---
@@ -149,6 +302,25 @@ Both spike outputs become the first entries in the eval corpus (`06-TDD-STRATEGY
 7. use case: same message polled twice → one document
 8. use case: 3 attachments → 3 documents, one move
 9. use case: ingest succeeds but the move fails → the `_index/event/mail` marker prevents a reprocess
+
+**Hardening — moved here from `UNFREEZE-LOG.md`, 2026-08-17.**
+
+- **CANDIDATE-015 — rewrite `senderAddress()`.** The shipped fix closes the four attack shapes its
+  author thought of; an adversarial re-attack found **six more RFC-legal bypasses**. The parser takes
+  the *last* `<…>` group, which is the defect. This is the entry that produced the standing rule:
+  *a fix may be marked APPLIED only when verified against a case list its author did not write.*
+  Urgency is genuinely low — `adapters/` does not exist, `parse-eml.ts` is a stub, so the mail path
+  is not live. It becomes live in this milestone, which is why it lands here.
+- **Rule-validation failures are silent.** A malformed routing rule is skipped with no report, so a
+  typo in `_state` looks like "no mail matched" forever. Surface it.
+- **`Object.hasOwn` in `toUsableRule`.** Caller-supplied keys reach an object literal; the house
+  convention (`Object.hasOwn` / `Map` / `UNSAFE_KEYS`) is already applied elsewhere in the engine.
+- **`fromPattern` is required** (Danilo, 2026-08-16) — routing on subject alone is not enough.
+- **Q17 is closed** (Danilo, 2026-08-17). Mailbox `danilo@diligaf.rs`, host `mailcluster.loopia.se`.
+  One protocol detail worth pinning, because inverting it is the classic bug: **IMAP 993 is implicit
+  TLS** (imapflow `secure: true`); **SMTP 587 is STARTTLS** (nodemailer `secure: false` +
+  `requireTLS: true`). Setting `secure: true` on 587 fails to connect. Passwords are `IMAP_PASS` /
+  `SMTP_PASS` — Key Vault references plus matching `.env.example` lines; the operator sets values.
 
 **Smoke:** forward a real izvod, watch it land in `E/Processed`. Forward a supplier invoice with `E:EXPENSE`. Forward the same one twice. Send an email matching nothing and confirm it lands in `E/Failed` rather than crashing the poller.
 
@@ -210,6 +382,27 @@ Scope narrowed by D10, D12, D13: **PDF only, you own the numbering, VAT derived 
 9. use case: empty month → clear "nothing to send", no empty zip mailed
 10. use case: recipient injection attempt in the input → ignored, config wins
 
+**Hardening — moved here from `UNFREEZE-LOG.md`, 2026-08-17.**
+
+- **The dead-man's switch** (U5). There is no monitoring anywhere in the design, and this is the
+  milestone where that stops being theoretical: **the monthly package fails as silence.** Nothing
+  distinguishes "no package was due" from "the timer never fired", and the three plausible causes —
+  an IMAP credential expiry, the pathological `_state` regex of CANDIDATE-010, and a Functions
+  timeout — all present identically as nothing arriving. A package that did not arrive must be
+  louder than one that did.
+- **Cross-check the zip against the manifest** before sending. The manifest is built from sidecars
+  and the zip from blobs; nothing today asserts they describe the same set of documents.
+- **The runbook sentence.** One line saying what to do when a package does not arrive, so the
+  answer is not reconstructed under pressure.
+- **Q18 — the exemption note, and the only already-incurred exposure in the review.** Invoice
+  `2026007` (DILIGAF → Vetatek LLC, 10,000 USD) rendered `VAT 0 USD` with no exemption note, which
+  `03-DILIGAF.md:181` explicitly forbids — a zero-rate VAT line and an exempt supply are different
+  documents to an inspector. Danilo's answer (2026-08-17): **"VAT not charged – reverse charge"**.
+  Flagged for the accountant rather than settled: reverse charge is an EU-VAT mechanism and Vetatek
+  is **US**, so the Serbian framing may be place-of-supply-outside-Serbia with an article citation
+  instead. The note text is an *input* — no string is hardcoded and the frozen tests forbid one — so
+  this blocks no code; only the wording is outstanding.
+
 **Smoke:** run `/report 2026-07` against real July data. Read the email yourself before it goes anywhere. **Send the first month's package to yourself, not the accountant.**
 
 ---
@@ -236,6 +429,25 @@ Pulled forward deliberately: cheap once the store exists, no write-risk to desig
 6. **injection** — fixture document text containing `ignore previous instructions…` produces no tool call and no leak
 7. render — CSV/XLSX round-trip; chart produced; document sent to WhatsApp
 8. audit — every session recorded with prompt + tool calls
+
+**Hardening — moved here from `UNFREEZE-LOG.md`, 2026-08-17.**
+
+- **A currency-grouped `total` pools currencies, and no frozen assertion can stop it.** The
+  per-bucket currency check is correct; the grand `total` is never currency-checked on *any* axis, so
+  `groupBy: ['category']` and `['vendor']` sum RSD and EUR together. **This was attempted and
+  reverted:** a result-level refusal in `aggregate.ts` turns red a frozen assertion that
+  `groupBy: ['currency']` over mixed currencies must *succeed* — and that assertion is correct, since
+  it is what makes the per-bucket design work. `AggregateResult` is pinned to four fields so a caveat
+  field needs an unfreeze too. **The freeze-compatible route is render-layer suppression here:** do
+  not print a grand total that spans currencies. (If the LCY work lands first this problem
+  disappears — every row gains a comparable amount — so check before building the suppression.)
+- **`maxRowsPerCall` is declared but enforced nowhere.** A single question can pull an unbounded row
+  count into a model context.
+- **A rule's category is never checked against the vocabulary.** A rule can write a
+  `Transaction.category` value that no vocabulary contains — bypassing the check a *model-authored*
+  proposal cannot bypass. Same anatomy as CANDIDATE-007.
+- **Rules are not filtered by book, and cannot be.** A PERSONAL rule can categorize a DILIGAF
+  transaction. This needs the rule shape to carry a book, so it is a data-model change, not a filter.
 
 **Smoke:** ask it the five questions you'd actually ask about July, and check every number by hand against the package you already sent your accountant.
 
@@ -301,6 +513,20 @@ Largest and least predictable — it depends entirely on your statement's real l
 11. use case: statement `.eml` → PDF stored + N tx events + summary message
 12. use case: parse fails entirely → PDF still stored, `needs_review`, honest message naming the page
 
+**Hardening — moved here from `UNFREEZE-LOG.md`, 2026-08-17.**
+
+- **CANDIDATE-011 — the ambiguity meta-rule hands the decision to the guesser.** When a vendor
+  resolves more than one way, the resolution is delegated to the same component whose uncertainty
+  created the ambiguity. Unfreeze required.
+- **CANDIDATE-012 — a mixed basket is filed whole and no split is ever offered.** A single receipt
+  covering two categories is booked to one. `split.ts` exists; nothing offers it. Pinned at `:391-401`
+  with the model's win mandated — CANDIDATE-004's anatomy again. Unfreeze required.
+- **A malformed statement announces `razlika 0,00`.** The failure message prints a difference of zero
+  when parsing failed outright, which reads as "reconciled" — the most misleading possible output on
+  the path whose whole job is to refuse to balance.
+- **Do not "clean up" `MAX_TOLERANCE`** — it was deleted with CANDIDATE-013 on 2026-08-17. If a
+  tolerance ceiling reappears in `reconcile.ts`, it is a regression, not a fix.
+
 **Smoke:** feed three real months. Check every total against the bank's own figures. Run `/misc` until the queue is empty and confirm the rules stuck.
 
 ---
@@ -328,6 +554,26 @@ Small, because M1 did the work.
 6. rollup — mixed-currency dimension totals
 7. use case: SMOQUA phone routes to SMOQUA; DILIGAF commands refused
 
+**Hardening — moved here from `UNFREEZE-LOG.md`, 2026-08-17.**
+
+- **Q10 — dimension aliases must be at least four characters** (Danilo, 2026-08-17). This is a *data*
+  constraint, not a code one: with a three-letter alias like `MAT` for `MATERIALS`, the strings `MAJ`,
+  `MART`, `RAT`, `ROB`, `RIBA` and `SOBA` all resolve to it at edit distance 1. The length-relative
+  fuzzy budget kills the worse cases (`VODA`, `RATA`, `MAPA`) but **cannot** kill these — nothing short
+  of exact-only matching below four characters can. Danilo's note: months never appear as dimensions,
+  so the calendar collisions are not a live risk.
+- **Adding a dimension is a `_state` edit, not an inbound message.** Using an unknown dimension must
+  ask, never invent — same precedent as `04-PERSONAL.md:164`, where adding a category is a JSON edit
+  rather than a deploy. Sequencing note (Danilo, 2026-08-17): **Tebra is read-only until M8**, so until
+  then the vocabulary is edited by hand and `/tebra` cannot be the path that adds one.
+- **CANDIDATE-006 — `confirmAboveAmount` is currency-blind, in both directions.** Measured: `400 EUR`
+  ≈ 46,800 RSD commits under a 500 RSD threshold — a ~117× hole in the only gate on the WhatsApp path.
+  **Superseded by the LCY work**, which solves it generally rather than per-currency; see the LCY
+  scoping document. Unfreeze of `nlu.test.ts:905-922` required either way, and it must be
+  **pre-authorized** before an isolated engineer starts, since they cannot self-authorize it.
+- **`interpret` cannot validate a model axis against the book.** A model may propose a dimension axis
+  that the book does not define, and nothing checks.
+
 **Smoke:** book three real shop expenses from the second phone, one with a PDF, one cash-with-dimension, one photo-then-dimension.
 
 ---
@@ -349,6 +595,32 @@ Small, because M1 did the work.
 5. bulk change → count and sample shown before the tap; truncation never silent
 6. injection + write path → proposal is produced but **flagged as injection-adjacent**, never auto-applied
 7. `add_rule` → retroactive application matches the `/misc` path exactly
+
+**Hardening — moved here from `UNFREEZE-LOG.md`, 2026-08-17.** This milestone builds the `_state`
+write boundary, which is where the remaining half of CANDIDATE-010 belongs.
+
+- **CANDIDATE-010, provenance half.** A stored regex rule can stall the engine for a minute per
+  transaction: a **9-byte** pattern against a **25-character** input — an ordinary Serbian card
+  descriptor — measured at **64,261 ms**. The shipped guard (pattern-length cap + nested-quantifier
+  rejection) takes that to **1 ms**, but it is a stopgap and known partial: alternation overlap is
+  exponential for the same reason nesting is, and has no quantifier *inside* the group, so
+  `(A|A)*C` (4,268 ms) and `(?:A|A)*C` (3,106 ms) are **not caught**. Adding a second detector is the
+  wrong instinct — each covers one syntactic family, there are more families than anyone enumerates,
+  and treating static detection as *the* defence repeats the CANDIDATE-015 error.
+  - **The actual control: refuse `matchType: 'regex'` on model-proposed rules.** Free today, since
+    the learning loop only ever emits `contains`.
+  - **It cannot be a field on the rule.** A `source: 'authored'` flag is set by whoever writes the
+    rule — precisely the actor being defended against. **Provenance is a property of the path the
+    data took, not of the data.** Practical form: separate `_state/rules/authored.json` from
+    `_state/rules/learned.json` and have the loader refuse regex from the second. Location as
+    provenance, unforgeable.
+  - **Do not cap the input length.** The register originally recommended it; measurement showed the
+    attacker authors the pattern and therefore controls the exponent, not the input. That advice was
+    deleted.
+- **Do not replace `node:crypto` in `mail/route.ts` with a hand-rolled hash.** A 32-bit collision
+  makes E treat unprocessed mail as already done and silently drop it. Keep the builtin, document the
+  Node requirement, and keep the eslint `node:*` ban so the *next* such import is a review-time
+  question.
 
 ---
 
