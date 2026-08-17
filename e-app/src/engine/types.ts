@@ -1,4 +1,4 @@
-// E — shared domain types. The contract every core module and test is written against.
+// E — shared domain types. The contract every engine module and test is written against.
 
 import type { VatMode } from './invoicing/vat-mode.js'
 export type { VatMode }
@@ -115,8 +115,8 @@ export interface Transaction {
   createdAt: string
 }
 
-/** Injected — core never reads the system clock. */
+/** Injected — engine never reads the system clock. */
 export interface Clock { now(): Date }
-/** Injected — core never generates randomness. */
+/** Injected — engine never generates randomness. */
 export interface IdGen { next(): string }
 

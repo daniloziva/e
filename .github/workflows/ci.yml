@@ -1,0 +1,139 @@
+name: CI
+
+# The M0 quality gate (07-ROADMAP.md §M0): lint → typecheck → unit → build.
+#
+# The repo root is E/; the app lives in E/e-app, so every step runs there.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: e-app
+
+jobs:
+  gate:
+    name: lint · typecheck · unit · build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: e-app/pnpm-lock.yaml
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # Blocking. Enforces the engine/ → adapters/ import ban, the no-any rule,
+      # and the test-freeze bans (bare .toThrow, .only/.skip).
+      - name: Lint
+        run: pnpm lint
+
+      # Blocking. Was clean at the freeze and must stay clean.
+      - name: Typecheck
+        run: pnpm typecheck
+
+      # ─────────────────────────────────────────────────────────────────────
+      # NOT blocking, and this is the one deliberate concession in the gate.
+      #
+      # The unit suite is frozen at TDD RED: 2,771 cases fail on `not
+      # implemented` by design (TEST-FREEZE.md). A blocking test step would be
+      # red on every commit until the last module lands, which trains everyone
+      # to ignore CI — worse than not running it.
+      #
+      # It still runs, and the pass/fail counts land in the job summary so a
+      # regression is visible. FLIP `continue-on-error` TO FALSE once
+      # implementation is complete and the suite is green.
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Unit suite (reporting only while the freeze is RED)
+        id: unit
+        continue-on-error: true
+        # `shell: bash` is load-bearing, not style. GitHub's default runner shell
+        # is `bash -e {0}` with NO pipefail, so the exit status of
+        # `pnpm test | tee` is TEE's — always 0. Without this line the step can
+        # never fail, `steps.unit.outcome` is hard-wired to `success`, and the
+        # summary below reports a success it did not measure. Anyone flipping
+        # `continue-on-error` to false would get a gate that gates nothing.
+        shell: bash
+        run: pnpm test --reporter=basic 2>&1 | tee unit.log
+
+      # Also NOT blocking, and for the same reason — most of src/engine is still
+      # stubs, so the 95/90 thresholds cannot pass yet.
+      #
+      # It runs anyway because until it does, those thresholds are DECORATIVE:
+      # they are declared in vitest.config.ts and were never once executed, since
+      # `pnpm test` does not compute coverage. A gate nobody runs is not a gate.
+      # FLIP `continue-on-error` TO FALSE together with the unit step above.
+      - name: Coverage (reporting only while the freeze is RED)
+        id: cov
+        continue-on-error: true
+        # Same pipefail reasoning as the unit step above.
+        #
+        # Also note: vitest's `coverage.reportOnFailure` defaults to FALSE, so
+        # while any test is red this emits no report and evaluates no threshold.
+        # Set it to true in vitest.config.ts before flipping the flags, or the
+        # gate stays decorative. Measured 2026-08-16: branches 89.04% against a
+        # 90% threshold — expect the first honest run to be red.
+        shell: bash
+        run: pnpm coverage 2>&1 | tail -40 | tee coverage.log
+
+      - name: Report suite counts
+        if: always()
+        run: |
+          {
+            echo "### Unit suite"
+            echo ''
+            echo '```'
+            grep -E '^ *(Test Files|Tests) ' unit.log || echo 'no summary line found'
+            echo '```'
+            echo ''
+            echo "Outcome: \`${{ steps.unit.outcome }}\` — RED is expected while TEST-FREEZE.md is in force."
+            echo ''
+            echo "### Coverage (src/engine/**)"
+            echo ''
+            echo '```'
+            grep -E '^(All files|% ?Coverage|ERROR: Coverage)' coverage.log || tail -5 coverage.log || echo 'no coverage output'
+            echo '```'
+            echo ''
+            echo "Outcome: \`${{ steps.cov.outcome }}\` — thresholds are 95% lines / 90% branches; failing is expected until the last module lands."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Blocking. Proves src/ still emits.
+      - name: Build
+        run: pnpm build
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # PLACEHOLDER — M0 names a fourth stage: contract tests for the blob store
+  # against Azurite (`putIfAbsent` returns 409 on the second call; `casPut`
+  # returns 412 on a stale ETag). Those are the foundation of the no-database
+  # design and nothing tests them yet, because src/adapters/ does not exist.
+  #
+  # To activate: add the Azurite service block below, drop the `if: false`,
+  # and point the step at the contract suite.
+  # ───────────────────────────────────────────────────────────────────────────
+  contract:
+    name: contract (Azurite) — not yet implemented
+    runs-on: ubuntu-latest
+    needs: gate
+    if: false
+    # services:
+    #   azurite:
+    #     image: mcr.microsoft.com/azure-storage/azurite:latest
+    #     ports: ['10000:10000']
+    steps:
+      - run: echo 'Blocked on src/adapters/store/blob-store.ts — see 07-ROADMAP.md §M0.'

@@ -1,0 +1,88 @@
+{
+  "_comment": [
+    "F4 ground truth — transcribed by hand from a photograph of a real Serbian fiscal receipt,",
+    "2026-08-15. This is the expected output; the photograph itself belongs in private/ because",
+    "it carries a cashier's name (personal data), which is deliberately omitted here.",
+    "",
+    "The receipt is a DILIGAF business fuel purchase — the M1 flagship case",
+    "(02-WHATSAPP-INTERFACE.md F1, 'Expense from a photo').",
+    "",
+    "Arithmetic verified: 38.74 L x 202.00 RSD/L = 7825.48; PDV 20% of the gross = 1304.25;",
+    "net = 6521.23. Any extraction rung disagreeing with these numbers is wrong.",
+    "",
+    "The QR on this receipt could NOT be read by any phone scanner the owner tried — see",
+    "the note in 08-OPEN-QUESTIONS.md on spike S-QR. That is a finding about layer 1's real",
+    "hit rate, not a property of this one receipt."
+  ],
+
+  "source": {
+    "kind": "fiscal_receipt",
+    "captured": "photograph",
+    "script": "cyrillic",
+    "paper": "thermal, folded across the upper third"
+  },
+
+  "expectedFacts": {
+    "vendorName": "NIS A.D. NOVI SAD",
+    "vendorPib": "104052135",
+    "docDate": "2026-08-06",
+    "amountNet": 6521.23,
+    "vatAmount": 1304.25,
+    "amountTotal": 7825.48,
+    "currency": "RSD",
+    "lineItems": [
+      {
+        "description": "EVRO PREMIUM BMB-95, 2710124500 /LIT",
+        "quantity": 38.74,
+        "unitPrice": 202.0,
+        "lineTotal": 7825.48
+      }
+    ]
+  },
+
+  "printedFields": {
+    "header": "ФИСКАЛНИ РАЧУН",
+    "locationName": "120672I-БС Француска 1",
+    "address": "ВЕНИЗЕЛОСОВА 66",
+    "city": "БЕОГРАД (СТАРИ ГРАД)",
+    "buyerId": "10:111886391",
+    "esirNumber": "955/22.4.1.0",
+    "invoiceType": "ПРОМЕТ-ПРОДАЈА",
+    "forPayment": "7825.48",
+    "paymentMethod": "Инстант плаћање",
+    "refund": "0.00",
+    "taxLabel": "Ђ",
+    "taxName": "О-ПДВ",
+    "taxRate": "20.00",
+    "taxAmount": "1304.25",
+    "taxTotal": "1304.25",
+    "pfrTime": "06.08.2026 19:21:03",
+    "pfrInvoiceNumber": "GVE2USTM-GVE2USTM-348119",
+    "invoiceCounter": "344982/348119ПП",
+    "footer": "КРАЈ ФИСКАЛНОГ РАЧУНА",
+    "buyerName": "DILIGAF DOO BEOGRAD-VRACAR"
+  },
+
+  "findings": [
+    {
+      "id": "decimal-separator",
+      "note": "Fiscal receipts print a DOT decimal separator (7825.48, 1304.25, 202.00, 0.00). This is the INVERSE of the grammar users type into WhatsApp, where '.' groups thousands and ',' is the decimal. extract/fiscal-receipt-regex.ts must NOT reuse money.ts parseAmount. The two conventions are deliberately handled by separate parsers; do not DRY them."
+    },
+    {
+      "id": "tax-label",
+      "note": "The 20% PDV label is 'Ђ', named 'О-ПДВ'. It also appears on the item line in parentheses — 'EVRO PREMIUM BMB-95, 2710124500 /LIT (Ђ)' — which is how per-item VAT is attributed on a multi-rate receipt. The TaxCore sample response in the docs uses a demo tenant with FRENCH labels (TVA exo. conv., 21%/9%) and must not be treated as representative."
+    },
+    {
+      "id": "buyer-pib-is-a-routing-signal",
+      "note": "'ИД купца: 10:111886391' carries DILIGAF's own PIB — prefix '10:' is the ID-type code for PIB. A fiscal receipt printed with DILIGAF's PIB is a business expense BY CONSTRUCTION; one without it is personal. Deterministic, free at layer 1, needs no model. Potentially valuable because PERSONAL and DILIGAF share a phone (Q13), so resolveBook alone cannot separate them. Not currently in any spec — see 08-OPEN-QUESTIONS.md."
+    },
+    {
+      "id": "pib-shape",
+      "note": "Seller PIB 104052135 and buyer PIB 111886391 are both exactly 9 digits, consistent with the extract/validate rule."
+    },
+    {
+      "id": "date-format",
+      "note": "ПФР време prints as DD.MM.YYYY HH:MM:SS ('06.08.2026 19:21:03'). Note 11.08.2026-style dates must be refused by money.ts parseAmount (pinned) — the receipt date parser is a separate concern."
+    }
+  ]
+}

@@ -11,5 +11,10 @@
     "types": ["node", "vitest/globals"],
     "outDir": "dist"
   },
-  "include": ["src", "test"]
+  "include": ["src", "test"],
+  // Superseded: the three independent draft suites that were merged into the
+  // frozen test/unit/ suite. vitest and eslint already exclude them; tsc did
+  // not, which made `pnpm typecheck` red on dead code. The freeze baseline is
+  // "clean across src/ and test/unit/" (TEST-FREEZE.md).
+  "exclude": ["test/_drafts"]
 }
