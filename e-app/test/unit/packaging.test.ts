@@ -927,7 +927,14 @@ describe('buildEmailBody', () => {
     const expected = [
       'Zdravo,',
       '',
-      'u prilogu je dokumentacija za jul 2026.',
+      // UNFREEZE CANDIDATE-016A: this golden omitted the company name while `:986`
+      // required it in the same body — unsatisfiable without hardcoding 'DILIGAF DOO',
+      // which that test's own title forbids. Danilo's ruling: carry it in both the
+      // Subject and the body, since the accountant receives DILIGAF *and* SMOQUA
+      // packages, and duplication is safer than an accidental omission.
+      // NOTE: `03-DILIGAF.md` §5's verbatim body sample still omits it and needs the
+      // matching line. Serbian wording here is provisional pending Danilo's review.
+      'u prilogu je dokumentacija za DILIGAF DOO, jul 2026.',
       '',
       'IZVODI (2)',
       '  2026-07-05 izvod 265-07-01.pdf',
@@ -963,7 +970,8 @@ describe('buildEmailBody', () => {
     const expected = [
       'Zdravo,',
       '',
-      'u prilogu je dokumentacija za jul 2026.',
+      // UNFREEZE CANDIDATE-016A — see the note on the preceding golden.
+      'u prilogu je dokumentacija za DILIGAF DOO, jul 2026.',
       '',
       'TROŠKOVI (3)',
       '  2026-07-02 OMV Srbija 4.210,00',
@@ -1090,7 +1098,10 @@ describe('buildEmailBody', () => {
       totalDocuments: 3,
       warnings: ['a.jpg: iznos nije pročitan', 'b.jpg: iznos nije pročitan'],
     })
-    const warned = linesOf(buildEmailBody(input({ manifest: m }))).filter((l) => l.includes('⚠'))
+    // UNFREEZE CANDIDATE-016B: the guard `&& l.startsWith('  ')` was present in drafts
+    // e3:952 and e2:907 and dropped by the merge. Without it the spec-mandated
+    // `Napomena:` closing line — which itself contains ⚠ — is counted as a document row.
+    const warned = linesOf(buildEmailBody(input({ manifest: m }))).filter((l) => l.includes('⚠') && l.startsWith('  '))
 
     expect(warned).toHaveLength(2)
     expect(warned.some((l) => l.includes('OMV Srbija'))).toBe(false)
@@ -1102,7 +1113,8 @@ describe('buildEmailBody', () => {
       { total: null, vatTotal: null },
     )
     const m = manifest({ groups: [g], totalDocuments: 1, warnings: ['blurry.jpg: iznos nije pročitan'] })
-    const warned = linesOf(buildEmailBody(input({ manifest: m }))).filter((l) => l.includes('⚠'))
+    // UNFREEZE CANDIDATE-016B — see the note on the preceding test.
+    const warned = linesOf(buildEmailBody(input({ manifest: m }))).filter((l) => l.includes('⚠') && l.startsWith('  '))
 
     expect(warned).toEqual(['  ⚠ 2026-07-19 nepoznat dobavljač iznos nije pročitan'])
   })
@@ -1113,7 +1125,8 @@ describe('buildEmailBody', () => {
       { total: null, vatTotal: null },
     )
     const m = manifest({ groups: [g], totalDocuments: 1, warnings: ['nodate.jpg: datum i iznos nisu pročitani'] })
-    const warned = linesOf(buildEmailBody(input({ manifest: m }))).filter((l) => l.includes('⚠'))
+    // UNFREEZE CANDIDATE-016B — see the note two tests above.
+    const warned = linesOf(buildEmailBody(input({ manifest: m }))).filter((l) => l.includes('⚠') && l.startsWith('  '))
 
     expect(warned).toHaveLength(1)
     expect(warned[0]).toContain('Dobavljač C')

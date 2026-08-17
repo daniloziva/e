@@ -334,7 +334,11 @@ describe('reconcile — the tolerance argument', () => {
     [1, 999.0, true],
     [1, 1001.0, true],
     [5, 995, true],
-    [1000, 1240, false],
+    // UNFREEZE CANDIDATE-013: was [1000, 1240, false], which asserts a difference of
+    // 240 against a tolerance of 1000 is unbalanced. 1240 is `04-PERSONAL.md:87`'s
+    // *razlika* (difference) pasted into the closing-balance column. 2240 encodes the
+    // spec's own example correctly: difference -1240 against a tolerance of 1000.
+    [1000, 2240, false],
   ])('with a tolerance of %s a stated closing of %s gives balanced=%s', (tolerance, closing, balanced) => {
     expect(reconcile(totals(1000, 0, 0, closing), tolerance).balanced).toBe(balanced)
   })

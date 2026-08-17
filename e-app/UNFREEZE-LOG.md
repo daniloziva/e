@@ -10,6 +10,62 @@ is indistinguishable from a bug being papered over.
 
 ---
 
+## STATUS — 2026-08-17. READ THIS FIRST; IT SUPERSEDES THE ENTRIES BELOW
+
+Danilo ruled on the whole register on 2026-08-17. Two things happened, and the entries further down
+this file were **not** individually rewritten — they are kept verbatim as the evidence trail. Where an
+entry below says "awaiting review" or "no action taken", this section is the authority.
+
+### Applied — six unfreezes, one commit
+
+`UNFREEZE-002` through `007`: **CANDIDATE-013, CANDIDATE-014, CANDIDATE-016A, CANDIDATE-016B,
+`smoke.test.ts:6`, and CANDIDATE-002.** All ruled APPROVED. Tests changed in a single `UNFREEZE:`
+commit with no `src/` changes; the `src/` half follows separately. Per-item detail and the
+consequences that must not be undone are in **`TEST-FREEZE.md`**, which is now the canonical record
+for these six.
+
+Two findings from applying them, both worth keeping:
+
+- **CANDIDATE-002's blast radius was 11 sites, not the 2 the entry predicted** — including the default
+  `facts()` fixture of a 182-case file. The entry said "plus any fixture using a made-up PIB" without
+  enumerating, and an unenumerated blast radius is not a blast radius. The algorithm was verified
+  against three real PIBs (NIS, DILIGAF, and Telekom Srbija via the NBS registry) *before* any test was
+  touched; no real PIB fails it. This is the "verify against a case list its author did not write" rule
+  applied to a fix from this very file.
+- **C-016A contradicts the spec sample.** `03-DILIGAF.md` §5's verbatim body omits the company name.
+  Danilo ruled for both Subject and body, so that sample now needs the matching line — a spec edit
+  deliberately *not* bundled into the unfreeze commit.
+
+### Reclassified — ~20 findings moved into `07-ROADMAP.md`
+
+A finding that cannot fire until an unwritten layer exists is not a defect; it is a requirement in the
+wrong document. Each is now an acceptance criterion in the milestone that must implement it, under a
+**Hardening** heading. This file is the evidence; the roadmap is the queue.
+
+| Moved to | Findings |
+|---|---|
+| **M0** | U2 (CI `pipefail`, fixed), U3 (the coverage gate has never evaluated anything; branches 89.04% vs 90% — do **not** lower it), U8 (`test/fakes/` empty, Azurite CAS tests never run), and the mutation-testing gap: 15 of 16 modules never swept, 25 undetected mutants in `invoicing` alone |
+| **M1** | C-004, C-007, C-008, **C-003 (reclassified — the total-level check cannot work; it is line-level, `{0,10,20}`, gated on `vendorPib !== null`)**, seller-vs-buyer PIB, F7 arrival, the ~5-minute media-URL expiry, and the **S-PIB outcome** — the NBS lookup, verified live, which was previously recorded nowhere |
+| **M2** | C-015 (six RFC-legal bypasses remain), silent rule-validation, `Object.hasOwn` in `toUsableRule`, `fromPattern`, Q17 config |
+| **M4** | the dead-man's switch (U5), zip-vs-manifest cross-check, the runbook sentence, **Q18** |
+| **M4.5** | the currency-pooling `total` (attempted and reverted — render-layer suppression is the freeze-compatible route), `maxRowsPerCall`, rule-category vocabulary check, rule book-scoping |
+| **M6** | C-011, C-012, the `razlika 0,00` message, and "do not resurrect `MAX_TOLERANCE`" |
+| **M7** | Q10 (4-char alias minimum; Tebra read-only until M8), C-006 (**superseded by LCY**), the model-axis check |
+| **M8** | C-010's provenance half — `authored.json` vs `learned.json`, because provenance is a property of the path, not a forgeable field |
+
+### Still live here, and nothing else
+
+- **C-005** — deferred by ruling; its cost does not grow with time.
+- **C-009 · H1 · H2 · H3 · H4 and the `node:crypto` decision** — recommended for closure as
+  not-worth-doing, with reasons, in the "Dropped" analysis below. Danilo left this heading blank in
+  `feedback.md`; treated as no objection, but it is the one item in this section with no explicit ruling.
+- **LCY** — Danilo's proposal (add a local-currency amount to every transaction) is **out of scope for
+  this register**. It is a cross-cutting data-model change, assigned to one engineer working in
+  isolation, and needs its own scoping document plus its own test fleet. It closes C-006 and the
+  currency-pooling `total` as side effects.
+
+---
+
 ## APPLIED
 
 ### UNFREEZE-001 — amountTotal ceiling raised from 10,000,000 to 100,000,000

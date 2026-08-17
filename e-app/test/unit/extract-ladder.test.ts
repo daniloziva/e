@@ -288,7 +288,10 @@ describe('runLadder', () => {
     it('returns the winning rung facts unchanged, line items included', async () => {
       const won = facts({
         vendorName: 'OMV Srbija',
-        vendorPib: '100002593',
+        // UNFREEZE CANDIDATE-002: was '100002593', which fails the ISO 7064 MOD 11,10
+        // check digit and returns zero rows from the NBS account registry — an invented
+        // number, not a real PIB. Same prefix, corrected check digit.
+        vendorPib: '100002590',
         docDate: '2026-08-11',
         amountNet: 3508.33,
         vatAmount: 701.67,

@@ -888,7 +888,11 @@ describe('buildInvoiceData', () => {
   it.each<[number, number, number]>([
     [1, 117.2345, 117.23],
     [1, 117.2033, 117.2],
-    [100, 117.2593, 14071.12],
+    // UNFREEZE CANDIDATE-014: was 14071.12, which is 120 × 117.2593 — a ×1.2 VAT basis
+    // carried over from the preceding test (`:875`, vatMode standard20, rate 117.5).
+    // This block hardcodes vatMode 'none' one line below, so no implementation could
+    // satisfy this row and rows 1-2 at once. 100 × 117.2593 = 11725.93.
+    [100, 117.2593, 11725.93],
   ])('rounds the dinar equivalent of %s at rate %s half-up to %s', (amount, rate, expected) => {
     const data = buildInvoiceData(
       makeInput({

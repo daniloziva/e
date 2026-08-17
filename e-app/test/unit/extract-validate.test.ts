@@ -40,7 +40,11 @@ const AFTER_UPPER_BOUND = '2026-08-15'
 function facts(overrides: Partial<ExtractedFacts> = {}): ExtractedFacts {
   return {
     vendorName: 'Maxi d.o.o.',
-    vendorPib: '123456789',
+    // UNFREEZE CANDIDATE-002: was '123456789', which fails the ISO 7064 MOD 11,10 check
+    // digit. This is the default fixture for the whole file, so once the checksum lands
+    // in `validate.ts` every case relying on the default would have had its vendorPib
+    // rejected. Same prefix, corrected check digit.
+    vendorPib: '123456788',
     docDate: '2026-08-01',
     amountNet: 1000,
     vatAmount: 200,
@@ -242,11 +246,24 @@ describe('validateFacts', () => {
   // -------------------------------------------------------------------------
 
   describe('vendorPib is exactly nine digits or nothing', () => {
+    // UNFREEZE CANDIDATE-002 — a Serbian PIB carries an ISO 7064 MOD 11,10 check digit,
+    // and this table kept two numbers that cannot have been issued. Danilo's ruling:
+    // validate the check digit.
+    //
+    // The algorithm was confirmed against three real, independently sourced PIBs before
+    // this table was touched — 104052135 (NIS) and 111886391 (DILIGAF) from the F4
+    // receipt, and 100002887 (Telekom Srbija, used 27× in extract-ladder), which the NBS
+    // account registry confirms is registered. All three validate. 100002593, the other
+    // PIB-shaped fixture in the suite, returns zero rows from that registry — it is
+    // invented, so it was corrected rather than treated as a counterexample.
+    //
+    // The two moved rows are below, in the rejection table. The kept rows had to change
+    // too: both were invented values that happen to fail the checksum. Each keeps its
+    // original prefix with only the check digit corrected, so the intent of each case
+    // (an ordinary PIB / leading zeros preserved as text) survives unchanged.
     it.each([
-      ['an ordinary PIB', '100205514'],
-      ['leading zeros, kept as text rather than a number', '000123456'],
-      ['nine zeros — the shape is validated, the taxpayer is not', '000000000'],
-      ['nine repeated digits — no checksum rule is specified', '111111111'],
+      ['an ordinary PIB', '100205516'],
+      ['leading zeros, kept as text rather than a number', '000123452'],
     ])('keeps a PIB with %s', (_label, pib) => {
       const result = validateFacts(facts({ vendorPib: pib }), REGEX_RUNG, CLOCK)
 
@@ -277,6 +294,15 @@ describe('validateFacts', () => {
       ['full-width digits', '１２３４５６７８９'],
       ['an empty string', ''],
       ['whitespace only', '   '],
+      // UNFREEZE CANDIDATE-002 — moved here from the keeps table above. Nine digits, so
+      // the shape passes; the ISO 7064 MOD 11,10 check digit does not. Neither number
+      // can have been issued to a taxpayer.
+      ['nine zeros — a legal shape but an impossible check digit', '000000000'],
+      ['nine repeated digits — the check digit should be 7, not 1', '111111111'],
+      // A single misread digit stays nine digits long and passes every shape rule. This
+      // is OCR's characteristic failure and the reason the checksum earns its place:
+      // 104052135 is NIS on the F4 receipt, and PIB is *identity* for vendor profiles.
+      ['a one-digit OCR misread of a real PIB', '104052134'],
     ])('returns null for a PIB that is %s', (_label, pib) => {
       const result = validateFacts(facts({ vendorPib: pib }), REGEX_RUNG, CLOCK)
 
@@ -551,7 +577,7 @@ describe('validateFacts', () => {
       )
 
       expect(result.facts.docDate).toBe('2026-08-01')
-      expect(result.facts.vendorPib).toBe('123456789')
+      expect(result.facts.vendorPib).toBe('123456788')
       expect(result.facts.vendorName).toBe('Maxi d.o.o.')
       expect(result.facts.currency).toBe('RSD')
     })
@@ -592,7 +618,7 @@ describe('validateFacts', () => {
       expect(result.facts.vatAmount).toBeNull()
       expect(result.facts.amountTotal).toBe(1200)
       expect(result.facts.amountNet).toBe(1000)
-      expect(result.facts.vendorPib).toBe('123456789')
+      expect(result.facts.vendorPib).toBe('123456788')
       expect(rejectedSet(result)).toEqual(['vatAmount'])
     })
 
