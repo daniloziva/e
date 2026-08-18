@@ -1,4 +1,6 @@
 import { round2 } from '../money.js'
+import { toRsd } from '../money.js'
+import type { ResolvedRate } from '../rates.js'
 import type { BookCode, Currency, Transaction, TxDirection } from '../types.js'
 
 export interface RawTransaction {
@@ -211,12 +213,19 @@ export function extractCounterparty(description: string): string | null {
  * separate, reviewable step, and inventing a category here would put a guess
  * where the accountant package expects a decision.
  */
+/** STUBBED: a supplied rate throws until implemented. `null` keeps the frozen behaviour. */
+function ratePart(resolved: ResolvedRate | null): number | null {
+  if (resolved !== null) throw new Error('not implemented')
+  return null
+}
+
 export function toTransaction(
   raw: RawTransaction,
   book: BookCode,
   id: string,
   dedupeKeyValue: string,
   createdAt: string,
+  resolved: ResolvedRate | null = null,
 ): Transaction {
   const description = asText(field(raw, 'description'))
   const amountValue = field(raw, 'amount')
@@ -243,10 +252,14 @@ export function toTransaction(
     counterparty: extractCounterparty(description),
     amount,
     currency,
-    // No rate is supplied here, so only an amount already in dinars has an RSD
-    // value. A foreign line stays null rather than carrying its face value into
-    // a total that is denominated in dinars.
-    amountRsd: currency === 'RSD' ? amount : null,
+    // A dinar line is its own RSD value at rate 1. A foreign line converts only
+    // when a rate was resolved for it; otherwise it stays null rather than
+    // carrying its face value into a total denominated in dinars.
+    amountRsd: currency === 'RSD' ? amount : toRsd({ amount, currency }, ratePart(resolved)),
+    // STUBBED: nothing populates these yet, so every test that asserts a stamped
+    // rate is RED — including the RSD `rate: 1` case, which is new behaviour too.
+    rate: null,
+    rateDate: null,
     direction: directionOf(amount),
     category: 'MISC',
     dimensions: {},

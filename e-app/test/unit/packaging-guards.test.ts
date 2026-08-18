@@ -66,6 +66,8 @@ const BASE_DOC: DocumentFacts = {
   currency: 'RSD',
   lineItems: [],
   amountRsd: 4210,
+  rate: null,
+  rateDate: null,
   dimensions: {},
   extraction: { method: 'fiscal_qr', confidence: 'exact', model: null },
   reviewStatus: 'ok',

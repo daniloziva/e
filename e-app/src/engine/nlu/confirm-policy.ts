@@ -3,7 +3,7 @@ import type { Book } from '../types.js'
 
 export type Decision =
   | { action: 'commit' }
-  | { action: 'confirm'; reason: 'low_confidence' | 'missing_slot' | 'large_amount' | 'conflict' }
+  | { action: 'confirm'; reason: 'low_confidence' | 'missing_slot' | 'large_amount' | 'conflict' | 'no_rate' }
   | { action: 'ask'; missing: string[] }
 
 // ---------------------------------------------------------------------------
@@ -46,7 +46,11 @@ function missingSlots(interpretation: Interpretation, book: Book): string[] {
  * confirm — low confidence, a conflict, or an amount at/above book.features.confirmAboveAmount
  * ask     — a required slot is missing entirely
  */
-export function decide(interpretation: Interpretation, book: Book): Decision {
+export function decide(
+  interpretation: Interpretation,
+  book: Book,
+  amountInBookCurrency?: number | null,
+): Decision {
   const missing = missingSlots(interpretation, book)
   if (missing.length > 0) return { action: 'ask', missing }
 
@@ -65,7 +69,19 @@ export function decide(interpretation: Interpretation, book: Book): Decision {
   // That asymmetry is deliberate and pinned by the suite; converting here would
   // mean reaching for a rate this function does not have.
   const money = interpretation.slots.money
-  if (money !== null && money.amount >= book.features.confirmAboveAmount) {
+  if (money === null) return { action: 'commit' }
+
+  // Three states, and the difference between the last two is the whole point:
+  //   undefined  no conversion was ASKED for  -> legacy raw comparison (frozen call sites)
+  //   null       a conversion was asked for and FAILED -> the tap
+  //   number     the amount, already in the book's currency
+  // STUBBED: the two new paths throw until implemented, so every new test is RED.
+  // `undefined` — no conversion asked for — still takes the legacy comparison below,
+  // which is why the 2,772 frozen cases stay green.
+  if (amountInBookCurrency !== undefined) throw new Error('not implemented')
+
+  const compared = money.amount
+  if (compared >= book.features.confirmAboveAmount) {
     return { action: 'confirm', reason: 'large_amount' }
   }
 

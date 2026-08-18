@@ -31,6 +31,8 @@ const tx = (over: Partial<Transaction> = {}): Transaction => ({
   amount: -4210,
   currency: 'RSD',
   amountRsd: -4210,
+  rate: null,
+  rateDate: null,
   direction: 'out',
   category: 'FUEL',
   dimensions: {},

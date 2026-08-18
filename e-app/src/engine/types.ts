@@ -86,6 +86,8 @@ export interface DocumentFacts extends ExtractedFacts {
   byteSize: number
   sha256: string
   amountRsd: number | null
+  rate: number | null
+  rateDate: string | null
   dimensions: DimensionValues
   extraction: Extraction
   reviewStatus: ReviewStatus
@@ -105,6 +107,8 @@ export interface Transaction {
   amount: number                  // signed: negative = outflow
   currency: Currency
   amountRsd: number | null
+  rate: number | null
+  rateDate: string | null
   direction: TxDirection
   category: string                // 'MISC' when unresolved
   dimensions: DimensionValues

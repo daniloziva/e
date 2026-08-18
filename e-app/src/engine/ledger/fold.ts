@@ -9,6 +9,7 @@ export type LedgerEvent =
   | { op: 'set_dimension'; id: string; at: string; ref: string; axis: string; value: string | null; by?: string; replaces?: string | null }
   | { op: 'set_amount'; id: string; at: string; ref: string; amount: number; by?: string; replaces?: number }
   | { op: 'split'; id: string; at: string; ref: string; parts: Array<{ amount: number; category: string }>; by?: string }
+  | { op: 'set_rate'; id: string; at: string; ref: string; rate: number; rateDate: string; by?: string }
   | { op: 'delete'; id: string; at: string; ref: string; by?: string }
 
 // ---------------------------------------------------------------------------
@@ -92,6 +93,12 @@ function readTransaction(value: unknown): Transaction | null {
   if (!isNonEmptyText(id)) return null
   if (!isFiniteNumber(amount)) return null
 
+  // `rate` is multiplied by money, so it is checked as strictly as `amount`:
+  // toRsd's own contract (money.ts:296) is finite and > 0. A blob carrying
+  // anything else reads as null rather than flowing into a dinar total.
+  // STUBBED: no extraction yet, so the blob-validation tests for `rate` are RED.
+  const rate = null
+
   const dimensions: DimensionValues = {}
   const rawDimensions = value['dimensions']
   if (isRecord(rawDimensions)) {
@@ -105,7 +112,7 @@ function readTransaction(value: unknown): Transaction | null {
   // writes, and everything else is passed through exactly as the blob carried
   // it (see above). `unknown` in between because a checked record is not
   // structurally a Transaction until those unchecked fields are asserted.
-  return { ...value, id, amount, dimensions } as unknown as Transaction
+  return { ...value, id, amount, rate, dimensions } as unknown as Transaction
 }
 
 /** The parts of a split, or null if any one of them is not a {amount, category} pair. */
@@ -181,6 +188,12 @@ function normalizeEvent(value: unknown): LedgerEvent | null {
       const parts = readParts(value['parts'])
       if (!isNonEmptyText(ref) || parts === null) return null
       return { op: 'split', id, at, ref, parts }
+    }
+    case 'set_rate': {
+      // STUBBED: a brand-new op. Nothing frozen can reach this branch — an
+      // unrecognised op already fell through to `default: return null` — so the
+      // throw makes every new set_rate test RED without touching the 2,772.
+      throw new Error('not implemented')
     }
     case 'delete': {
       if (!isNonEmptyText(ref)) return null
@@ -357,6 +370,21 @@ export function fold(events: LedgerEvent[]): Transaction[] {
         })
         break
       }
+      case 'set_rate': {
+        // It SUPPLIES a missing rate; it never replaces one. A recomputed rate
+        // would move a figure already sent to the accountant.
+        if (slot.tx.rate !== null) break
+        live.set(event.ref, {
+          ...slot,
+          tx: {
+            ...slot.tx,
+            rate: event.rate,
+            rateDate: event.rateDate,
+            amountRsd: round2(slot.tx.amount * event.rate),
+          },
+        })
+        break
+      }
       case 'delete': {
         live.delete(event.ref)
         break
@@ -402,6 +430,9 @@ export function invert(
 
   if (normalized.op === 'add') return { op: 'delete', id, at, ref: normalized.tx.id }
   if (normalized.op === 'split') return null
+  // Same class as `split`: the prior state was UNKNOWN, not a different rate,
+  // and an undo that invents a prior value is worse than one that declines.
+  if (normalized.op === 'set_rate') return null
 
   const state = Array.isArray(current) ? current : []
   const target = state.find((tx) => isRecord(tx) && tx['id'] === normalized.ref)

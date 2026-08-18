@@ -94,6 +94,8 @@ function tx(over: Partial<Transaction> = {}): Transaction {
     amount: -1200,
     currency: 'RSD',
     amountRsd: -1200,
+    rate: null,
+    rateDate: null,
     direction: 'out',
     category: 'HRANA',
     dimensions: {},
