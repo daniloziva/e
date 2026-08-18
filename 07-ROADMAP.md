@@ -586,7 +586,7 @@ Small, because M1 did the work.
 2. slot parsing, any order, with and without description; `MATERIJAAL PAMUK 200E Projekat 1` end to end
 2b. `open_text` axis — new project value accepted, remembered, offered as a button next time
 3. required dimension — document with no caption → stored, question asked, not auto-`OTHER`
-4. currency — EUR stored with `amount_rsd` at the doc date; rate failure → null + `needs_review`
+4. currency — EUR stored with `amount_rsd` at the doc date; rate failure → **newest cached rate at or before that date, flagged** (Danilo 2026-08-17; was "null + `needs_review`", which contradicts the LCY ruling — see `10-LCY.md`)
 5. attach-to-previous — within TTL attaches; after TTL creates new
 6. rollup — mixed-currency dimension totals
 7. use case: SMOQUA phone routes to SMOQUA; DILIGAF commands refused

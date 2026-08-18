@@ -127,7 +127,7 @@ The shop buys abroad, so mixed currency is normal, not an edge case.
 - Amount keeps its **original currency** (`300.00 EUR`) — that's the invoice's truth
 - `amount_rsd` is computed with the NBS middle rate for the **document's date** (1IA's `nbs-rates.ts`), stored alongside
 - Reports show both: dimension totals in RSD, with a per-currency breakdown underneath
-- Rate lookup failure → store the original amount, leave `amount_rsd` null, `needs_review`, backfill on the next successful rate fetch
+- Rate lookup failure → store the original amount, use the **newest cached rate at or before the document date** and flag it (Danilo, 2026-08-17). *Superseded: this line previously said "leave `amount_rsd` null, `needs_review`". Staleness needs no boolean — `rateDate !== txDate` **is** the flag.* See `10-LCY.md`
 
 Storing the rate *as of the document date* rather than converting at report time is deliberate: it makes historical numbers stable. A report re-run in December must not change August's figures.
 
