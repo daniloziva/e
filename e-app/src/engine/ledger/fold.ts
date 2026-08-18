@@ -96,8 +96,11 @@ function readTransaction(value: unknown): Transaction | null {
   // `rate` is multiplied by money, so it is checked as strictly as `amount`:
   // toRsd's own contract (money.ts:296) is finite and > 0. A blob carrying
   // anything else reads as null rather than flowing into a dinar total.
-  // STUBBED: no extraction yet, so the blob-validation tests for `rate` are RED.
-  const rate = null
+  // `rate` is multiplied by money, so it is checked as strictly as `amount`:
+  // toRsd's contract (money.ts:296) is finite and > 0. A blob carrying anything
+  // else reads as null rather than flowing into a dinar total.
+  const rawRate = value['rate']
+  const rate = isFiniteNumber(rawRate) && rawRate > 0 ? rawRate : null
 
   const dimensions: DimensionValues = {}
   const rawDimensions = value['dimensions']
@@ -190,10 +193,11 @@ function normalizeEvent(value: unknown): LedgerEvent | null {
       return { op: 'split', id, at, ref, parts }
     }
     case 'set_rate': {
-      // STUBBED: a brand-new op. Nothing frozen can reach this branch — an
-      // unrecognised op already fell through to `default: return null` — so the
-      // throw makes every new set_rate test RED without touching the 2,772.
-      throw new Error('not implemented')
+      const rate = value['rate']
+      const rateDate = value['rateDate']
+      if (!isNonEmptyText(ref) || !isNonEmptyText(rateDate)) return null
+      if (!isFiniteNumber(rate) || rate <= 0) return null
+      return { op: 'set_rate', id, at, ref, rate, rateDate }
     }
     case 'delete': {
       if (!isNonEmptyText(ref)) return null

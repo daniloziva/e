@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { fold, invert, type LedgerEvent } from '../../src/engine/ledger/fold.js'
 import { toTransaction, type RawTransaction } from '../../src/engine/ledger/normalize.js'
 import type { ResolvedRate } from '../../src/engine/rates.js'
-import type { Transaction } from '../../src/engine/types.js'
+import type { Currency, Transaction } from '../../src/engine/types.js'
 
 const EUR = 117.5
 const USD = 101
@@ -60,7 +60,7 @@ const raw = (over: Partial<RawTransaction> = {}): RawTransaction => ({
   ...over,
 })
 
-const resolved = (rate: number, rateDate: string): ResolvedRate => ({ rate, rateDate })
+const resolved = (rate: number, rateDate: string, currency: Currency = 'EUR'): ResolvedRate => ({ currency, rate, rateDate })
 
 describe('toTransaction — the rate reaches the pure engine as a value', () => {
   it('stamps rate 1 and the transaction date on a dinar line', () => {
@@ -75,6 +75,44 @@ describe('toTransaction — the rate reaches the pure engine as a value', () => 
     expect(t.rate).toBeNull()
     expect(t.rateDate).toBeNull()
     expect(t.amountRsd).toBeNull()
+  })
+
+  // `app/` resolves TWO structurally identical ResolvedRate values on adjacent
+  // lines — the transaction's currency and the book's — so swapping them is a
+  // plausible caller bug that the type cannot catch. Booking money at another
+  // currency's rate is irreversible once written, so the engine refuses.
+  //
+  // Found by mutation: deleting the `resolved.currency !== currency` check killed
+  // ZERO tests before these three existed.
+  it.each([
+    ['USD rate handed to a EUR line', 'EUR' as Currency, USD, 'USD' as Currency],
+    ['EUR rate handed to a USD line', 'USD' as Currency, EUR, 'EUR' as Currency],
+    ['EUR rate handed to a GBP line', 'GBP' as Currency, EUR, 'EUR' as Currency],
+  ])('refuses to convert when a %s', (_label, lineCurrency, rate, rateCurrency) => {
+    const t = toTransaction(
+      raw({ currency: lineCurrency, amount: -100 }),
+      'SMOQUA',
+      'i',
+      'dk',
+      'c',
+      resolved(rate, '2026-08-17', rateCurrency),
+    )
+
+    // Refused, not silently converted at the wrong rate.
+    expect(t.amountRsd).toBeNull()
+    expect(t.rate).toBeNull()
+    expect(t.rateDate).toBeNull()
+    // The original money is untouched — refusing a rate must not lose the amount.
+    expect(t.amount).toBe(-100)
+    expect(t.currency).toBe(lineCurrency)
+  })
+
+  it('still converts when the rate matches the line currency', () => {
+    // The companion to the three above: without this, a guard that refused
+    // EVERYTHING would also pass them.
+    const t = toTransaction(raw({ currency: 'USD', amount: -100 }), 'SMOQUA', 'i', 'dk', 'c', resolved(USD, '2026-08-17', 'USD'))
+    expect(t.amountRsd).toBe(-10100)
+    expect(t.rate).toBe(USD)
   })
 
   it('converts a foreign line at the supplied rate, rounding the product once', () => {
@@ -109,8 +147,8 @@ describe('toTransaction — the rate reaches the pure engine as a value', () => 
   it('rounds half away from zero on the product, not toward it', () => {
     // 0.15 * 101 is 15.149999999999999 in IEEE754; a truncating conversion
     // books 15.14. -0.15 proves the sign handling in the same breath.
-    expect(toTransaction(raw({ amount: 0.15, currency: 'USD' }), 'SMOQUA', 'i', 'dk', 'c', resolved(USD, '2026-08-17')).amountRsd).toBe(15.15)
-    expect(toTransaction(raw({ amount: -0.15, currency: 'USD' }), 'SMOQUA', 'i', 'dk', 'c', resolved(USD, '2026-08-17')).amountRsd).toBe(-15.15)
+    expect(toTransaction(raw({ amount: 0.15, currency: 'USD' }), 'SMOQUA', 'i', 'dk', 'c', resolved(USD, '2026-08-17', 'USD')).amountRsd).toBe(15.15)
+    expect(toTransaction(raw({ amount: -0.15, currency: 'USD' }), 'SMOQUA', 'i', 'dk', 'c', resolved(USD, '2026-08-17', 'USD')).amountRsd).toBe(-15.15)
     expect(toTransaction(raw({ amount: 0.15, currency: 'EUR' }), 'SMOQUA', 'i', 'dk', 'c', resolved(EUR, '2026-08-17')).amountRsd).toBe(17.63)
   })
 

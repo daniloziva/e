@@ -75,12 +75,17 @@ export function decide(
   //   undefined  no conversion was ASKED for  -> legacy raw comparison (frozen call sites)
   //   null       a conversion was asked for and FAILED -> the tap
   //   number     the amount, already in the book's currency
-  // STUBBED: the two new paths throw until implemented, so every new test is RED.
-  // `undefined` — no conversion asked for — still takes the legacy comparison below,
-  // which is why the 2,772 frozen cases stay green.
-  if (amountInBookCurrency !== undefined) throw new Error('not implemented')
+  // Three states, and the difference between the last two is the whole point:
+  //   undefined  no conversion was ASKED for      -> legacy raw comparison
+  //   null       a conversion was asked for and FAILED -> the tap
+  //   number     the amount, already in the book's currency
+  //
+  // Two states cannot express this. Collapsing undefined into null would make every
+  // frozen call site take the tap; collapsing null into undefined would silently
+  // compare a foreign amount against a dinar threshold, which is CANDIDATE-006.
+  if (amountInBookCurrency === null) return { action: 'confirm', reason: 'no_rate' }
 
-  const compared = money.amount
+  const compared = amountInBookCurrency ?? money.amount
   if (compared >= book.features.confirmAboveAmount) {
     return { action: 'confirm', reason: 'large_amount' }
   }

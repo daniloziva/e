@@ -213,10 +213,19 @@ export function extractCounterparty(description: string): string | null {
  * separate, reviewable step, and inventing a category here would put a guess
  * where the accountant package expects a decision.
  */
-/** STUBBED: a supplied rate throws until implemented. `null` keeps the frozen behaviour. */
-function ratePart(resolved: ResolvedRate | null): number | null {
-  if (resolved !== null) throw new Error('not implemented')
-  return null
+/**
+ * The rate to apply, or null.
+ *
+ * Refuses a rate resolved for a DIFFERENT currency. `app/` resolves two
+ * structurally identical `ResolvedRate` values on adjacent lines — the
+ * transaction's and the book's — so the swap is a plausible caller bug and the
+ * type alone cannot prevent it. Booking money at the wrong currency's rate is
+ * irreversible once written, so the engine refuses rather than trusting.
+ */
+function rateFor(resolved: ResolvedRate | null, currency: Currency): number | null {
+  if (resolved === null) return null
+  if (resolved.currency !== currency) return null
+  return resolved.rate
 }
 
 export function toTransaction(
@@ -255,11 +264,15 @@ export function toTransaction(
     // A dinar line is its own RSD value at rate 1. A foreign line converts only
     // when a rate was resolved for it; otherwise it stays null rather than
     // carrying its face value into a total denominated in dinars.
-    amountRsd: currency === 'RSD' ? amount : toRsd({ amount, currency }, ratePart(resolved)),
-    // STUBBED: nothing populates these yet, so every test that asserts a stamped
-    // rate is RED — including the RSD `rate: 1` case, which is new behaviour too.
-    rate: null,
-    rateDate: null,
+    // A dinar line is its own RSD value at rate 1. A foreign line converts only when
+    // a rate was resolved FOR ITS OWN CURRENCY; otherwise it stays null rather than
+    // carrying its face value into a total denominated in dinars.
+    amountRsd: currency === 'RSD' ? amount : toRsd({ amount, currency }, rateFor(resolved, currency)),
+    rate: currency === 'RSD' ? 1 : rateFor(resolved, currency),
+    rateDate:
+      currency === 'RSD'
+        ? asText(field(raw, 'txDate'))
+        : (rateFor(resolved, currency) === null ? null : (resolved?.rateDate ?? null)),
     direction: directionOf(amount),
     category: 'MISC',
     dimensions: {},

@@ -255,12 +255,12 @@ describe('the staleness flag and the 7-day bound are two mechanisms', () => {
 
 describe('resolveRate', () => {
   it('answers RSD from a constant with an EMPTY table', () => {
-    expect(resolveRate([], 'RSD', '2026-08-17')).toEqual({ rate: 1, rateDate: '2026-08-17' })
+    expect(resolveRate([], 'RSD', '2026-08-17')).toEqual({ currency: 'RSD', rate: 1, rateDate: '2026-08-17' })
   })
 
   it('answers RSD from the constant even if a bogus RSD row was stored', () => {
     const bogus = [quote({ currency: 'RSD' as RateQuote['currency'], rate: 999 })]
-    expect(resolveRate(bogus, 'RSD', '2026-08-17')).toEqual({ rate: 1, rateDate: '2026-08-17' })
+    expect(resolveRate(bogus, 'RSD', '2026-08-17')).toEqual({ currency: 'RSD', rate: 1, rateDate: '2026-08-17' })
   })
 
   it('never flags an RSD row as stale, on any date', () => {
@@ -270,6 +270,7 @@ describe('resolveRate', () => {
 
   it('carries the rate DATE, not the document date, for a stale foreign hit', () => {
     expect(resolveRate([quote({ rateDate: '2026-08-14' })], 'EUR', '2026-08-17')).toEqual({
+      currency: 'EUR',
       rate: EUR,
       rateDate: '2026-08-14',
     })
@@ -282,23 +283,23 @@ describe('resolveRate', () => {
 
 describe('toBookCurrency', () => {
   it('is free for an RSD book', () => {
-    expect(toBookCurrency(47000, { rate: 1, rateDate: '2026-08-17' })).toBe(47000)
+    expect(toBookCurrency(47000, { currency: 'RSD', rate: 1, rateDate: '2026-08-17' })).toBe(47000)
   })
 
   it('DIVIDES by the book rate — multiplying is the inverted implementation', () => {
-    const inBook = toBookCurrency(60000, { rate: EUR, rateDate: '2026-08-17' })
+    const inBook = toBookCurrency(60000, { currency: 'EUR', rate: EUR, rateDate: '2026-08-17' })
     expect(inBook).toBeCloseTo(510.6382978723404, 10)
   })
 
   it('does not round before the comparison', () => {
     // 58749.5 / 117.5 = 499.99574..., which round2 would lift to 500.00 and
     // over a 500 threshold. The money never crossed it.
-    const inBook = toBookCurrency(58749.5, { rate: EUR, rateDate: '2026-08-17' })
+    const inBook = toBookCurrency(58749.5, { currency: 'EUR', rate: EUR, rateDate: '2026-08-17' })
     expect(inBook === null ? 0 : inBook < 500).toBe(true)
   })
 
   it.each([
-    ['an unconverted amount', null, { rate: EUR, rateDate: '2026-08-17' }],
+    ['an unconverted amount', null, { currency: 'EUR' as const, rate: EUR, rateDate: '2026-08-17' }],
     ['no book rate', 47000, null],
   ])('returns null for %s', (_label, amountRsd, bookRate) => {
     expect(toBookCurrency(amountRsd, bookRate)).toBeNull()
@@ -310,6 +311,6 @@ describe('toBookCurrency', () => {
     ['NaN', Number.NaN],
     ['Infinity', Number.POSITIVE_INFINITY],
   ])('refuses a %s book rate, exactly as toRsd does', (_label, rate) => {
-    expect(toBookCurrency(47000, { rate, rateDate: '2026-08-17' })).toBeNull()
+    expect(toBookCurrency(47000, { currency: 'EUR', rate, rateDate: '2026-08-17' })).toBeNull()
   })
 })
