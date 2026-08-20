@@ -5,7 +5,10 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['test/**/*.test.ts'],
-    exclude: ['test/_drafts/**'],
+    // *.azurite.test.ts needs a live emulator, so it is NOT part of `pnpm test`
+    // — that must run with nothing else installed (06-TDD-STRATEGY.md:244).
+    // It runs via `pnpm test:contract` / vitest.contract.config.ts.
+    exclude: ['test/_drafts/**', 'test/contract/**/*.azurite.test.ts'],
     // Deliberately NOT UTC. The engine must derive calendar days from the
     // injected clock's UTC components (01-ARCHITECTURE §9). Both this container
     // and Azure Functions run UTC, so a local-time implementation would be green

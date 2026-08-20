@@ -122,22 +122,74 @@ jobs:
         run: pnpm build
 
   # ───────────────────────────────────────────────────────────────────────────
-  # PLACEHOLDER — M0 names a fourth stage: contract tests for the blob store
-  # against Azurite (`putIfAbsent` returns 409 on the second call; `casPut`
-  # returns 412 on a stale ETag). Those are the foundation of the no-database
-  # design and nothing tests them yet, because src/adapters/ does not exist.
+  # BLOCKING as of 2026-08-18. Was a placeholder with `if: false` from M0 until
+  # `src/adapters/store/blob-store.ts` existed.
   #
-  # To activate: add the Azurite service block below, drop the `if: false`,
-  # and point the step at the contract suite.
+  # This job exists for exactly two assertions: `putIfAbsent` returns 409 on the
+  # second call, and `casPut` returns 412 on a stale ETag. `06-TDD-STRATEGY.md`
+  # §L2 calls them "the load-bearing guarantees of the whole no-database design",
+  # because every other mechanism — dedupe by content hash, idempotent events, the
+  # review queue, mutable `_state` — is built from those two plus prefix listing.
+  # If they do not hold, choosing Blob Storage over a database was wrong, and
+  # nothing else in E would tell us.
+  #
+  # It runs the SAME cases as the in-memory fake: `blob-store.contract.ts` is a
+  # function, invoked from both `.fake.test.ts` and `.azurite.test.ts`. That is the
+  # whole design — a guarantee verified only against a fake we wrote ourselves is
+  # not verified, and a fake that drifts silently invalidates every use-case test
+  # above it.
   # ───────────────────────────────────────────────────────────────────────────
   contract:
-    name: contract (Azurite) — not yet implemented
+    name: contract (Azurite)
     runs-on: ubuntu-latest
     needs: gate
-    if: false
-    # services:
-    #   azurite:
-    #     image: mcr.microsoft.com/azure-storage/azurite:latest
-    #     ports: ['10000:10000']
+    timeout-minutes: 10
+
     steps:
-      - run: echo 'Blocked on src/adapters/store/blob-store.ts — see 07-ROADMAP.md §M0.'
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: e-app/pnpm-lock.yaml
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # Azurite runs from the devDependency, NOT as a service container.
+      #
+      # A service container cannot take a command — GitHub's `options` maps to
+      # `docker create` flags — and `--skipApiVersionCheck` is REQUIRED, not
+      # tidying: Azurite 3.36 refuses the API version @azure/storage-blob 12.33
+      # sends (2026-06-06) and fails the connection outright. Every operation used
+      # here (upload, download, list, delete, If-None-Match, If-Match) long
+      # predates that version, and this suite is what proves they behave; Azurite
+      # suggests the flag in its own error text.
+      #
+      # Running it from the devDependency also means CI and a laptop execute the
+      # byte-identical command, so the two cannot drift.
+      - name: Start Azurite
+        shell: bash
+        run: |
+          pnpm exec azurite-blob --silent --skipApiVersionCheck \
+            --location "${RUNNER_TEMP}/azurite" --blobPort 10000 &
+          for _ in $(seq 1 30); do
+            # Any HTTP response means it is listening; unauthenticated probes
+            # legitimately answer 400/403, so `curl -f` would be wrong here.
+            if curl -s -o /dev/null "http://127.0.0.1:10000/devstoreaccount1"; then
+              echo "azurite listening"; exit 0
+            fi
+            sleep 1
+          done
+          echo "azurite did not start within 30s"; exit 1
+
+      # Blocking. The suite FAILS rather than skips when Azurite is unreachable —
+      # a contract job that quietly skips is the decorative gate the coverage
+      # thresholds were for eight milestones.
+      - name: Contract suite (blob store vs Azurite)
+        run: pnpm test:contract

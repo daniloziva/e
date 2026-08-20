@@ -1,0 +1,16 @@
+# Keep the deployment to what the runtime actually needs. Without this the
+# package carries the whole devDependency tree — azurite alone is ~250 packages —
+# plus every test and coverage artifact.
+.git*
+.vscode
+__azurite*
+__blobstorage__
+coverage/
+node_modules/.cache
+src/
+test/
+*.md
+*.log
+eslint.config.js
+tsconfig*.json
+vitest*.config.ts
